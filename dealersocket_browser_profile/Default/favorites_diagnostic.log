@@ -1,0 +1,46 @@
+2026-10-14 04:54:17.049: [INFO] CurrentProfilePath: D:\Hammad\metaphor-replacement-api\dealersocket_browser_profile\Default
+2026-10-14 04:54:17.049: [INFO] Profiles total count: 1
+2026-10-14 04:54:17.049: [INFO] Profile: name=Profile 1 path=D:\Hammad\metaphor-replacement-api\dealersocket_browser_profile\Default lastActive=null
+2026-10-14 04:54:17.049: [INFO] LastUsedProfileDir: D:\Hammad\metaphor-replacement-api\dealersocket_browser_profile\Default
+2026-10-14 04:54:17.049: [INFO] VisibilityChanged: 0
+2026-10-14 04:54:17.369: [INFO] OnDoneLoading sync enabled: 0
+2026-10-14 04:54:17.369: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-10-14 04:54:17.369: [INFO] BookmarksLoadDropped droppedNodes=0
+2026-10-14 04:54:17.369: [INFO] BookmarksSnapshot Startup total=0 bar=0 other=0 mobile=0 showBar=0 showBarNTP=1
+2026-10-14 04:54:17.703: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-10-14 04:54:23.529: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-10-14 04:54:23.534: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:23.576: [INFO] Primary account changed.
+2026-10-14 04:54:23.576: [INFO] OnPrimaryAccountChanged PrimaryAccountChangeEvent::Type::kSet
+2026-10-14 04:54:23.609: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:28.095: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:28.107: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:28.109: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:28.139: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:28.140: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:28.142: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2026-10-14 04:54:28.144: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:28.148: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:28.970: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:28.980: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:29.648: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:30.281: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:30.285: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2026-10-14 04:54:30.287: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2026-10-14 04:54:30.501: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:30.503: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:30.504: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:30.506: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2026-10-14 04:54:30.948: [INFO] BookmarkNodeAdded, ABU: 0
+2026-10-14 04:54:30.949: [INFO] BookmarkNodeAdded, ABU: 0
+2026-10-14 04:54:39.533: [INFO] BookmarkNodeAdded, ABU: 0
+2026-10-14 04:54:39.533: [INFO] Remove, DeletionOrigin: 19
+2026-10-14 04:54:39.535: [INFO] BookmarkNodeRemoved, Url: 1, IsFolder: 0, IsWorkspace: 0
+2026-10-14 04:54:39.535: [INFO] BookmarkNodeAdded, ABU: 0
+2026-10-14 04:54:39.535: [INFO] Remove, DeletionOrigin: 19
+2026-10-14 04:54:39.536: [INFO] BookmarkNodeRemoved, Url: 1, IsFolder: 0, IsWorkspace: 0
+2026-10-14 04:54:39.537: [INFO] BookmarkNodeAdded, ABU: 0
+2026-10-14 04:54:39.537: [INFO] BookmarkNodeAdded, ABU: 0
+2026-10-14 04:54:39.537: [INFO] BookmarkNodeAdded, ABU: 0
+2026-10-14 04:54:40.248: [INFO] Sync initialization duration: 9737ms
+2026-10-14 04:55:32.870: [INFO] BookmarksSnapshot Shutdown total=5 bar=4 other=0 mobile=1 showBar=0 showBarNTP=1

@@ -1,0 +1,38 @@
+0:00:26 Microsoft.Shutdown.TabStripModel.InternalCloseTabsImpl_ClosedAll
+0:00:26 Microsoft.Shutdown.TabStripModel.SendDetachWebContentsNotifications
+0:00:26 Browser1 Close Tab3 at 1
+0:00:26 Tab3 WebContentsDestroyed
+0:00:30 Memory Pressure: Moderate
+0:00:37 Widget Closed: StatusBubble
+0:00:40 Autofill_OnWillSubmitForm
+0:00:40 Tab1 StartNav15 #renderer-user #link
+0:00:40 Tab1 FinishNav15
+0:00:40 Tab1 PageLoad
+0:00:40 Memory Pressure: Moderate
+0:00:41 Tab1 StartNav16 #renderer-script #link
+0:00:42 Tab1 FinishNav16 ERR_ABORTED
+0:00:42 Tab1 StartNav17 #renderer-script #link
+0:00:45 Tab1 FinishNav17
+0:00:46 Tab1 StartNav18 #renderer-script #link
+0:00:46 Tab1 FinishNav18
+0:00:46 Microsoft.Autofill.Password.SignIn.NoAutofillSuggestions
+0:00:46 Tab1 PageLoad
+0:00:50 Memory Pressure: Moderate
+0:00:50 Tab1 StartNav19 #renderer-user #link
+0:00:51 Tab1 FinishNav19
+0:00:51 PasswordManager_LoginPassed
+0:00:51 Microsoft.ENP.Framework.CourtesyEngine.FrequencyCappingAllowed
+0:00:51 Microsoft.Nurturing.Framework.CourtesyEngine.FrequencyCappingAllowed
+0:00:51 Tab1 PageLoad
+0:00:51 Tab1 StartNav20 #renderer-script #form_submit
+0:00:53 Widget Closed: PasswordBubbleViewBase
+0:00:53 Tab1 FinishNav20
+0:00:54 Tab1 PageLoad
+0:00:57 Tab1 StartNav21 #renderer-script #link
+0:00:59 Tab1 FinishNav21
+0:00:59 Tab1 PageLoad
+0:01:00 Autofill_ParsedCreditCardForm
+0:01:00 Memory Pressure: Moderate
+0:01:07 Widget Closed: StatusBubble
+0:01:10 Memory Pressure: Moderate
+0:01:16 Microsoft.UnloadController.IsUnclosableApp_IsNotWebApp

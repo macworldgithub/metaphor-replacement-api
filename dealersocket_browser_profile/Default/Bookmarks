@@ -1,0 +1,106 @@
+{
+   "checksum": "df91e238db5661c9734654fd15df7587",
+   "roots": {
+      "bookmark_bar": {
+         "children": [ {
+            "date_added": "13228220850537464",
+            "date_last_used": "0",
+            "guid": "d7c3207b-8a9b-49f3-9d90-e013db112f57",
+            "id": "10",
+            "name": "Gmail",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "https://accounts.google.com/b/0/AddMailService",
+            "visit_count": 0
+         }, {
+            "date_added": "13333915138065440",
+            "date_last_used": "0",
+            "guid": "c0536e4f-cd15-4f52-894e-13f3667df73e",
+            "id": "11",
+            "name": "(77) ECFMG - EPIC Verification Process (A to Z) (Step by Step) - YouTube",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.youtube.com/watch?v=oo1p17J4Nhc",
+            "visit_count": 0
+         }, {
+            "date_added": "13365499196226095",
+            "date_last_used": "0",
+            "guid": "bf187c13-c0c6-49fd-845b-c9aac3994ad8",
+            "id": "12",
+            "name": "Microsoft Excel Full Course Hindi | Introduction to MS Excel | MS Excel Full Course Marketing Fundas - YouTube",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.youtube.com/watch?v=16fZZXexZuE&list=PLXwTOG3-tRwgy4lJ9j_CPwpJmr2uCaGH1&pp=iAQB",
+            "visit_count": 0
+         }, {
+            "date_added": "13365499228137744",
+            "date_last_used": "0",
+            "guid": "f6921bf0-8154-4bac-aaa1-fad7826547ba",
+            "id": "13",
+            "name": "Introduction to MS Word in Hindi | MS Word Course in Hindi by Marketing Fundas | #mswordcourse - YouTube",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.youtube.com/watch?v=MQq-LlmsiSk&list=PLXwTOG3-tRwiThuqSMatVuXBLG4sjYxua",
+            "visit_count": 0
+         } ],
+         "date_added": "13436427256420340",
+         "date_last_used": "0",
+         "date_modified": "13365499228137744",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "Favorites bar",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "date_added": "13436427256420340",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "Other favorites",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [ {
+            "date_added": "13205449335821959",
+            "date_last_used": "0",
+            "guid": "40accc9b-d2bd-4862-9f89-88c8a9bd19b4",
+            "id": "9",
+            "name": "Facebook",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "https://m.facebook.com/home.php",
+            "visit_count": 0
+         } ],
+         "date_added": "13436427256420340",
+         "date_last_used": "0",
+         "date_modified": "13205449335821959",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "Mobile favorites",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "workspaces_v2": {
+         "children": [  ],
+         "date_added": "13436427256420340",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "75aa6670-344f-549d-b742-660f029506ab",
+         "id": "5",
+         "name": "Workspaces",
+         "source": "unknown",
+         "type": "folder"
+      }
+   },
+   "sync_metadata": "CkEKHgiIgQISCHEawzihAQAAKg4QABgAIAAoBDAAOABAABIAKhhtdFVqUFpENFdTUU9WMEhJK2JaOVl3PT1IA6AGDBKMAQgFEocBChx3UkJyWkwrNlBBOWF2S2dqTlA3SlhETGNmdnM9EiQ0N2M0ZmJiYi0wMGM0LTU0NjQtOGQ1Yi04NzVhYzlkN2YzY2QYACAAKAAwrKHHoaIzOJ6xx6GiM0CescehojNKHG5teDY1c1FEdnhJOFRnRWV2K0ErbnR0b1NuND1lAAAAAMI+AmAAEq0BCAwSqAEKHFE4VnVPcWFWMlpuNjIzWGsyU29YZUtXSmZ2dz0SJGJmMTg3YzEzLWMwYzYtNDlmZC04NDViLWM5YWFjMzk5NGFkOBgAIAAoADDnoMWpojM43KXFqaIzQNylxamiM0ocL3dXNkthbEFXVzhQUm1teW1kVnJPcTcyZEFNPVofIh3cTStkRlM1Vk5xbXgxSlM1alFrTWU5WUcrNUc0PWXD0+yswj4CYAUSjAEIARKHAQoceXhKLzZmdmtlY3I3a3A1RVF6QjR0V0xwZGJFPRIkMWI3NTRhYzktOTc2Mi01M2E5LWI0YWYtNWMzMWFmODBmYzA0GAAgACgAMKahx6GiMziVsMehojNAlbDHoaIzShxhUkNXTGdoRjliNUlucUtJRHZ1Si9qdlFrRmM9ZQAAAADCPgJgABKMAQgCEocBChxZY1NUb252RVNQd3FDczRMMmNyVmh2NjhMOTg9EiRkZTU1OTJmNi1mMTNiLTU0ZDItOGIwNi1iYWI4YTY2MmVjNmMYACAAKAAwp6HHoaIzOL+wx6GiM0C/sMehojNKHG9QVmtod0JSYlY2NUtDV1IyK0lPTkhXb091OD1lAAAAAMI+AmAAEq0BCA0SqAEKHGZ2dEJDelNQdkNpWjlkUnp5bXVvQmdWb0xTND0SJGY2OTIxYmYwLTgxNTQtNGJhYy1hYWExLWZhZDc4MjY1NDdiYRgAIAAoADDpoMWpojM4uqbFqaIzQLqmxamiM0ocR0RVZUdhczFCK3lFeDZpWFhrRWRsNHBkV0VnPVofIh3uaWdQY09UTHAxNDVXckVWSlgvd2htTXJUaU40PWVD+G2Awj4CYAUSrAEICRKnAQocOWFGemE4MWFXbDdTUkkwTTNrbnFaem8xMTNRPRIkNDBhY2NjOWItZDJiZC00ODYyLTlmODktODhjOGE5YmQxOWI0GAAgACgAMOu6xamiMzj0wcWpojNA9MHFqaIzShxHK21veHovYTBZeU1zYTJEQi82Vk9neFdZRHM9Wh4iHEtMWG54TVdndmRWV1RzTmwvWEhraVpqNGFRTT1l0DAh/sI+AmALEq0BCAsSqAEKHE41UHRUdUZOS25SdzZJRWlGNm9kUGx4TEtKVT0SJGMwNTM2ZTRmLWNkMTUtNGY1Mi04OTRlLTEzZjM2NjdkZjczZRgAIAAoADDooMWpojM4jqbFqaIzQI6mxamiM0ocQXNCUktHSzI5ZTVUTEZSalVBbmZWSHA1bzg0PVofIh24MWVGYU9yeUhBR2JqbklGdEdBSE96UkFQeVpzPWXD0+yswj4CYAUSrAEIChKnAQocWGJsL3VtbDVaREIwYXRUZDlSRndwL04ydERNPRIkZDdjMzIwN2ItOGE5Yi00OWYzLTlkOTAtZTAxM2RiMTEyZjU3GAAgACgAMOagxamiMzirpcWpojNAq6XFqaIzShwzcDVSQWhORER2VHpuM2R0am5FdXZTU2VudG89Wh4iHHBsK2dlVSs3aFFBQW1WOXArZ1lzQXBOdndYdz1lIjmYNsI+AmALEowBCAMShwEKHG5qZ0R1ODhlQ3J2WHA4NnBEN2ZIR2NxRnA4OD0SJGU3MzNlYzFiLTJhMjAtNThjZi05NDY3LTNmMzkxNGFmYjNlNxgAIAAoADCtocehojM4y7HHoaIzQMuxx6GiM0oceXpOQjAxY241NEE3Y1JVMHVUKy9QZ21UdFVvPWUAAAAAwj4CYAAwADgA",
+   "version": 1
+}
