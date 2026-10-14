@@ -42,7 +42,7 @@ MEMBER_FIELDS = ["selected_dealership_id", "selected_dealership", "category", "f
                  "record_key", "dealership_id", "opportunity_type", "opportunity_id", "customer_id"]
 FILTER_FIELDS = ["selected_dealership_id", "selected_dealership", "category", "filter_id", "filter_name",
                  "is_my_filter", "is_enterprise", "status", "displayed_count", "loaded_count",
-                 "distinct_records", "detail_failures", "error"]
+                 "distinct_records", "detail_failures", "error", "checked_at"]
 
 
 def utcnow():
@@ -327,9 +327,15 @@ async (page) => {
       if (await frame.locator('select[name="filter-dropdown"]').isVisible()) return;
       const expand = frame.locator('button[name="expandButton"]');
       if (!await expand.isVisible()) break;
-      await expand.click();
+      // This only expands the list. Dispatch its observed UI handler without
+      // waiting for animation-frame stability in a background tab.
+      await expand.evaluate(e=>{if(e.disabled)throw new Error('List expand control disabled.');e.click();});
+      await frame.waitForTimeout(100);
     }
-    await frame.locator('select[name="filter-dropdown"]').waitFor({timeout:10000});
+    await frame.waitForFunction(()=>{
+      const e=document.querySelector('select[name="filter-dropdown"]');
+      return !!e&&e.getClientRects().length>0&&getComputedStyle(e).visibility!=='hidden';
+    },null,{timeout:10000,polling:250});
   };
   const ready = async (siteId, filterId=null) => {
     try { await frame.waitForFunction(({siteId,filterId}) => {
@@ -340,13 +346,15 @@ async (page) => {
         && c.categoryFilters?.length>0
         && c.categoryFilters.every(x=>String(x.siteId)===String(siteId))
         && (filterId===null || String(c.selectedFilter?.id)===String(filterId));
-    }, {siteId,filterId}, {timeout:30000});
+    }, {siteId,filterId}, {timeout:30000,polling:250});
     } catch (error) {
       const observed=await readList(e=>{
         const c=window.angular?.element(e).controller('crmEmployeeDashboardListDetails');
         return {site:c?.selectedDealership?.value,filter:c?.selectedFilter?.id,
           filterSite:c?.selectedFilter?.siteId,busy:c?.isLoadingTodos,
-          loadedRows:c?.todos?.length,filterCount:c?.categoryFilters?.length};
+          loadedRows:c?.todos?.length,filterCount:c?.categoryFilters?.length,
+          visibility:document.visibilityState,
+          mismatchedFilterSites:c?.categoryFilters?.filter(x=>String(x.siteId)!==String(c.selectedDealership?.value)).length};
       }).catch(()=>({component:'unavailable'}));
       throw new Error('Filter readiness timeout: expected site='+siteId+' filter='+filterId
         +'; observed='+JSON.stringify(observed)+'; '+String(error.message).split('\n')[0]);
@@ -452,7 +460,8 @@ async (page) => {
     let opened=false,lastError='No matching visible card';
     for(let attempt=1;attempt<=maxAttempts&&!opened;attempt++) {
       try {
-        await listView();
+        // Keep the current layout: expanding/collapsing the detail sidebar can
+        // hang on a clipped expandButton. Native list selection works in both layouts.
         const index=await list.evaluate((e,{expected,siteId,filterId})=>{
           const c=angular.element(e).controller('crmEmployeeDashboardListDetails');
           if(c.isLoadingTodos || (siteId && String(c.selectedDealership?.value)!==String(siteId))
@@ -462,6 +471,26 @@ async (page) => {
             String(x.salesOpportunityId),String(x.contactId)].join('|')===expected);
         },{expected,siteId:cfg.site_id,filterId:cfg.filter_id});
         if(index<0) throw new Error('Record disappeared from the current filter; rerun this filter.');
+        // Hidden tabs may have loaded todos but no rendered virtual cards.
+        // Use the list's existing read-only selection binding after rechecking context.
+        const selectedFromModel=await list.evaluate((e,{expected,siteId,filterId})=>{
+          const c=window.angular?.element(e).controller('crmEmployeeDashboardListDetails');
+          if(!c||c.isLoadingTodos||(siteId&&String(c.selectedDealership?.value)!==String(siteId))
+            ||(filterId&&String(c.selectedFilter?.id)!==String(filterId)))
+            throw new Error('Queue changed before model selection.');
+          const todo=c.todos.find(x=>[String(x.dealershipId),String(x.opportunityType).toLowerCase(),
+            String(x.salesOpportunityId),String(x.contactId)].join('|')===expected);
+          if(!todo)throw new Error('Verified opportunity disappeared before selection.');
+          if(typeof c.changeTodo!=='function')return false;
+          c.changeTodo(todo,undefined);
+          return true;
+        },{expected,siteId:cfg.site_id,filterId:cfg.filter_id});
+        if(selectedFromModel) {
+          await frame.waitForFunction(matchesDetail,detailIdentity,
+            {timeout:Math.min(15000,Math.max(1000,Number(cfg.detail_timeout)||15000)),polling:250});
+          opened=true;
+          break;
+        }
         await list.evaluate((e,index)=>{
           const host=e.querySelector('md-virtual-repeat-container');
           const virtual=host&&angular.element(host).data().$mdVirtualRepeatContainerController;
@@ -477,6 +506,16 @@ async (page) => {
           try {
             for(const card of cards) {
               if(!await card.evaluate(matchesCard,expected))continue;
+              clicked=await card.evaluate((e,expected)=>{
+                const c=window.angular?.element(e).controller('crmOpportunityCard');
+                const x=c?.opportunity;
+                const actual=[String(x?.dealershipId),String(x?.opportunityType).toLowerCase(),
+                  String(x?.salesOpportunityId),String(x?.contactId)].join('|');
+                if(actual!==expected||typeof c?.onSelect!=='function')return false;
+                c.onSelect({driver:undefined});
+                return true;
+              },expected);
+              if(clicked)break;
               const controls=await card.$$('[ng-click="ctrl.select()"]');
               try {
                 for(const control of controls) {
@@ -510,7 +549,7 @@ async (page) => {
           } finally { await Promise.all(cards.map(x=>x.dispose())); }
         }
         if(!clicked)throw new Error('Virtual row has no matching visible selection control: '+expected);
-        await frame.waitForFunction(matchesDetail,detailIdentity,{timeout:Math.min(12000,Math.max(1000,Number(cfg.detail_timeout)||12000))});
+        await frame.waitForFunction(matchesDetail,detailIdentity,{timeout:Math.min(15000,Math.max(1000,Number(cfg.detail_timeout)||15000)),polling:250});
         opened=true;
       } catch(error) {
         lastError=String(error.message).split('\n')[0];
@@ -525,7 +564,7 @@ async (page) => {
           const e=document.querySelector('crm-employee-dashboard-opportunity-view crm-activity-timeline');
           const c=e&&angular.element(e).controller('crmActivityTimeline');
           return c&&c.isWaiting===false&&String(c.contact?.id)===String(contact);
-        },todo.contactId,{timeout:10000});
+        },todo.contactId,{timeout:10000,polling:250});
         timelineState='ready';
       } catch { timelineState='timeout'; }
     }
@@ -678,7 +717,7 @@ def target_filter(f):
                 ["Cranbourne Kia", "Kia Cranbourne", "Cranbourne MG", "MG Cranbourne",
                  "Geely Cranbourne", "Cranbourne Geely", "Geely Internet Leads"])
     category = ALIASES.get(f["category"], f["category"])
-    return named, category == "Internet Traffic" or category == "Unsold Traffic" and named
+    return named, named and category in FAST_CATEGORIES
 
 
 def scope_row(raw, rooftop, basis, names, origin):
@@ -767,7 +806,7 @@ def export_scope(folder, state):
         resolved_errors=len(state.get("error_history", [])), rooftops=counts,
         coverage_status=dict(Counter(c["status"] for c in state["coverage"].values())),
         scope_review_records=len(state["review"]), mapping_conflicts=state["mapping_conflicts"],
-        scope="Accessible Internet Traffic filters and explicitly Cranbourne-named Unsold Traffic filters. No broad history scan.",
+        scope="Only explicitly Cranbourne Kia/MG and Geely-named Internet/Unsold queues. Geely is limited to its named queue; no broader sales search.",
         eligibility="Candidate sales records only. New/reopened lead status, cutover date, received-time semantics and consent are not verified. No SMS authorization.",
         empty_file_note="A header-only rooftop CSV does not establish that the rooftop has no leads.")
     checkpoint(folder / "checkpoint.json", state)
@@ -777,6 +816,7 @@ def export_scope(folder, state):
 
 async def scoped_sync(chrome, args, selected_sites, categories, output):
     state, folder, configured = scope_state(args, output)
+    refresh_filters = set(getattr(args, "refresh_filter", None) or [])
     print(f"SCOPED CSV output: {folder}", flush=True)
     original = None
     calls, consecutive, visited = 0, 0, 0
@@ -809,10 +849,16 @@ async def scoped_sync(chrome, args, selected_sites, categories, output):
             except Exception as error:
                 state["errors"].append(dict(stage="catalog", site=site, error=error_message(error)))
         print(f"Selected {len(jobs)} lead filters; no QA, service, sold, lost or Revenue Radar detail scans.", flush=True)
+        selected_keys = {str(job[2]) + ":" + str(job[3]["id"]) for job in jobs}
+        if refresh_filters - selected_keys:
+            raise RuntimeError("Refresh queue is unavailable or outside the scoped selection: "
+                               + ", ".join(sorted(refresh_filters - selected_keys)))
         current_site = None
-        for _, site, site_id, f, category in sorted(jobs, key=lambda j: (j[0], j[1], j[3]["id"])):
+        for _, site, site_id, f, category in sorted(jobs, key=lambda j: (
+                str(j[2]) + ":" + str(j[3]["id"]) not in refresh_filters, j[0], j[1], j[3]["id"])):
             coverage_key = site_id + ":" + str(f["id"])
-            if state["coverage"].get(coverage_key, {}).get("status") == "complete":
+            refresh = coverage_key in refresh_filters
+            if state["coverage"].get(coverage_key, {}).get("status") == "complete" and not refresh:
                 continue
             if args.check:
                 continue
@@ -858,17 +904,18 @@ async def scoped_sync(chrome, args, selected_sites, categories, output):
                         opportunity_id=todo.get("salesOpportunityId"), customer_id=todo.get("contactId"))
                     if key not in state["records"]:
                         state["records"][key] = scope_row(fallback(todo), rooftop, basis, names, "list_only")
-                coverage.update(displayed_count=data["displayed_count"], loaded_count=len(todos), distinct_records=len(candidates))
+                coverage.update(displayed_count=data["displayed_count"], loaded_count=len(todos),
+                                distinct_records=len(candidates), checked_at=utcnow())
                 print(f"  {len(todos)} listed; {len(candidates)} scoped sales candidates; {len(todos)-len(candidates)} skipped without opening.", flush=True)
                 for key, todo, rooftop, basis in candidates:
-                    if state["records"][key].get("detail_extracted"):
+                    if state["records"][key].get("detail_extracted") and not refresh:
                         continue
                     if args.max_records and calls >= args.max_records:
                         continue
                     calls += 1
                     print(f"  {rooftop}: opportunity {todo['salesOpportunityId']} ({calls} detail reads)", flush=True)
                     try:
-                        result = await chrome.call("detail", todo=todo, site_id=site_id, filter_id=f["id"], max_attempts=1, detail_timeout=6000)
+                        result = await chrome.call("detail", todo=todo, site_id=site_id, filter_id=f["id"], max_attempts=2, detail_timeout=15000)
                         raw = result["record"]
                         actual, actual_basis = scoped_rooftop(raw, mappings, state["mapping_conflicts"])
                         if actual != rooftop:
@@ -1109,16 +1156,22 @@ def main():
     parser.add_argument("--env-file", type=Path, default=BASE_DIR / ".env")
     parser.add_argument("--output", help="CSV output parent directory.")
     parser.add_argument("--resume", help="Continue an interrupted run directory, using its cached snapshot.")
+    parser.add_argument("--refresh-filter", action="append", metavar="SITE_ID:FILTER_ID",
+                        help="Re-read one exact scoped queue even if the checkpoint marked it complete; repeatable. Refreshed queues run first.")
     parser.add_argument("--seed-run", help="Reuse saved scoped details from an old run; write new Cranbourne output, leaving old files untouched.")
     parser.add_argument("--rooftop-map", help="Optional JSON list of explicit dealership_id/franchise_id/rooftop mappings; no guessed IDs.")
     parser.add_argument("--all-rooftops", action="store_true", help="Explicit legacy broad scan, including unrelated dealerships/categories. Not recommended for the scoped project.")
     parser.add_argument("--dealership", action="append", help="Restrict source site selectors; default discover their filter names only.")
-    parser.add_argument("--category", action="append", choices=CATEGORIES, help="Default Internet Traffic plus Cranbourne-named Unsold Traffic queues.")
+    parser.add_argument("--category", action="append", choices=CATEGORIES, help="Scoped mode selects only Cranbourne Kia/MG and Geely-named Internet/Unsold queues.")
     parser.add_argument("--fail-fast-after", type=int, default=3, help="Stop scoped extraction after this many consecutive detail failures; default 3.")
     parser.add_argument("--max-filters", type=int, default=0, help="Diagnostic limit; 0 means all filters.")
     parser.add_argument("--max-records", type=int, default=0, help="Diagnostic detail-call limit; 0 means all records.")
     parser.add_argument("--delay", type=float, default=0.2, help="Seconds between detail visits.")
     args = parser.parse_args()
+    if any(not re.fullmatch(r"\d+:\d+", key) for key in (args.refresh_filter or [])):
+        parser.error("--refresh-filter must use SITE_ID:FILTER_ID, for example 10304:707.")
+    if args.refresh_filter and (args.all_rooftops or args.export_only or args.check or args.diagnose):
+        parser.error("--refresh-filter requires a scoped scrape, not broad, catalog-only or offline mode.")
     if args.max_filters < 0 or args.max_records < 0 or args.delay < 0:
         parser.error("Limits and delay must be nonnegative.")
     if args.fail_fast_after < 1:

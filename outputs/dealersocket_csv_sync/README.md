@@ -44,12 +44,28 @@ For a fresh run, omit `--seed-run`. To resume a new scoped run, use
 run to `--resume` safely treats it as a seed and creates new scoped output.
 Do not run multiple scrapers against the same browser session.
 
+To recheck Geely's exact queue even when the checkpoint says it is complete:
+
+```powershell
+.\.venv\Scripts\python.exe .\outputs\dealersocket_csv_sync\download_dealersocket_chrome.py `
+  --env-file .\.env `
+  --output .\downloads `
+  --resume .\downloads\cranbourne-20261014T091316777956Z `
+  --refresh-filter 10304:707
+```
+
+The refresh reads this queue again and refreshes its current records. Other completed
+queues remain cached. Geely is limited to its named unassigned queue; the default
+does not inspect generic assigned-sales or other dealers' lead queues. A completed
+empty queue is a dated snapshot, so ordinary resume alone will not detect new rows.
+Refresh is a manual snapshot operation, not a continuous portal synchronization worker.
+
 ## What makes this faster
 
 1. Read the accessible dealership **filter catalogs only** to find candidate
    queues. Seeing another dealership name at this stage is not a detail scrape.
-2. Select accessible Internet Traffic filters plus explicitly Cranbourne-named
-   Unsold Traffic filters, with named target queues first.
+2. Select only explicitly Cranbourne Kia/MG or Geely-named Internet Traffic and
+   Unsold Traffic queues. Other dealer and generic Internet Traffic queues are excluded.
 3. Read each selected list once. Before opening any customer, require a sales
    record, a matching rooftop, and a status that is not sold/lost/closed/delivered.
 4. Skip unrelated rooftops and QA/service records without opening them. Skip all
@@ -57,12 +73,25 @@ Do not run multiple scrapers against the same browser session.
    Radar and generic salesperson-history queues.
 5. Deduplicate by source site, opportunity type, opportunity ID and customer ID;
    reuse already-extracted scoped details.
-6. Make one bounded card-selection attempt per uncached target record. After
+6. Use the identity-checked native card-selection binding in the current layout,
+   with up to two bounded attempts and a 15-second detail wait. After
    three consecutive detail failures, stop and save rather than repeating
    failures over hundreds of records. `--fail-fast-after` changes that threshold.
 
+On 14 October 2026, Geely queue 10304:707 was freshly verified with one record
+explicitly labelled Geely Cranbourne, source dealership 10304 and franchise 21.
+An earlier saved zero-row result was skipped by ordinary resume; an explicit
+refresh corrects that stale snapshot. These IDs are evidence from that queue,
+not a claim of access to all assigned Geely opportunities.
+
 Browser extraction is still visible unattended Chrome automation, not headless.
 Keep Chrome open and avoid manually changing the automation tab's filters.
+
+Readiness and detail waits use 250 ms timer polling because animation-frame
+polling can stall in hidden Chrome tabs. If the loaded list has no rendered
+virtual cards, selection uses the existing list controller's changeTodo binding
+after verifying the current site, queue, opportunity and customer IDs. The detail
+view must still match both IDs before any fields are exported.
 
 ## Rooftop mapping and coverage
 

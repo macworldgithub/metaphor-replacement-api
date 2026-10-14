@@ -59,9 +59,14 @@ async (page) => {
             if (await frame.locator('select[name="filter-dropdown"]').isVisible()) return;
             const expand = frame.locator('button[name="expandButton"]');
             if (!await expand.isVisible()) break;
-            await expand.click();
+            // Expand only this observed list control; avoid background rAF waits.
+            await expand.evaluate(e => { if (e.disabled) throw new Error('List expand control disabled.'); e.click(); });
+            await frame.waitForTimeout(100);
         }
-        await frame.locator('select[name="filter-dropdown"]').waitFor({ timeout: 10000 });
+        await frame.waitForFunction(() => {
+            const e = document.querySelector('select[name="filter-dropdown"]');
+            return !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+        }, null, { timeout: 10000, polling: 250 });
     };
     const ready = async (siteId, filterId = null) => {
         try {
@@ -73,14 +78,16 @@ async (page) => {
                     && c.categoryFilters?.length > 0
                     && c.categoryFilters.every(x => String(x.siteId) === String(siteId))
                     && (filterId === null || String(c.selectedFilter?.id) === String(filterId));
-            }, { siteId, filterId }, { timeout: 30000 });
+            }, { siteId, filterId }, { timeout: 30000, polling: 250 });
         } catch (error) {
             const observed = await readList(e => {
                 const c = window.angular?.element(e).controller('crmEmployeeDashboardListDetails');
                 return {
                     site: c?.selectedDealership?.value, filter: c?.selectedFilter?.id,
                     filterSite: c?.selectedFilter?.siteId, busy: c?.isLoadingTodos,
-                    loadedRows: c?.todos?.length, filterCount: c?.categoryFilters?.length
+                    loadedRows: c?.todos?.length, filterCount: c?.categoryFilters?.length,
+                    visibility: document.visibilityState,
+                    mismatchedFilterSites: c?.categoryFilters?.filter(x => String(x.siteId) !== String(c.selectedDealership?.value)).length
                 };
             }).catch(() => ({ component: 'unavailable' }));
             throw new Error('Filter readiness timeout: expected site=' + siteId + ' filter=' + filterId
@@ -193,7 +200,7 @@ async (page) => {
         let opened = false, lastError = 'No matching visible card';
         for (let attempt = 1; attempt <= maxAttempts && !opened; attempt++) {
             try {
-                await listView();
+                // Select in the current layout; avoid clipped expandButton controls.
                 const index = await list.evaluate((e, { expected, siteId, filterId }) => {
                     const c = angular.element(e).controller('crmEmployeeDashboardListDetails');
                     if (c.isLoadingTodos || (siteId && String(c.selectedDealership?.value) !== String(siteId))
@@ -203,6 +210,25 @@ async (page) => {
                     String(x.salesOpportunityId), String(x.contactId)].join('|') === expected);
                 }, { expected, siteId: cfg.site_id, filterId: cfg.filter_id });
                 if (index < 0) throw new Error('Record disappeared from the current filter; rerun this filter.');
+                // Hidden tabs can load the list without rendering any virtual cards.
+                const selectedFromModel = await list.evaluate((e, { expected, siteId, filterId }) => {
+                    const c = window.angular?.element(e).controller('crmEmployeeDashboardListDetails');
+                    if (!c || c.isLoadingTodos || (siteId && String(c.selectedDealership?.value) !== String(siteId))
+                        || (filterId && String(c.selectedFilter?.id) !== String(filterId)))
+                        throw new Error('Queue changed before model selection.');
+                    const todo = c.todos.find(x => [String(x.dealershipId), String(x.opportunityType).toLowerCase(),
+                        String(x.salesOpportunityId), String(x.contactId)].join('|') === expected);
+                    if (!todo) throw new Error('Verified opportunity disappeared before selection.');
+                    if (typeof c.changeTodo !== 'function') return false;
+                    c.changeTodo(todo, undefined);
+                    return true;
+                }, { expected, siteId: cfg.site_id, filterId: cfg.filter_id });
+                if (selectedFromModel) {
+                    await frame.waitForFunction(matchesDetail, detailIdentity,
+                        { timeout: Math.min(15000, Math.max(1000, Number(cfg.detail_timeout) || 15000)), polling: 250 });
+                    opened = true;
+                    break;
+                }
                 await list.evaluate((e, index) => {
                     const host = e.querySelector('md-virtual-repeat-container');
                     const virtual = host && angular.element(host).data().$mdVirtualRepeatContainerController;
@@ -218,6 +244,16 @@ async (page) => {
                     try {
                         for (const card of cards) {
                             if (!await card.evaluate(matchesCard, expected)) continue;
+                            clicked = await card.evaluate((e, expected) => {
+                                const c = window.angular?.element(e).controller('crmOpportunityCard');
+                                const x = c?.opportunity;
+                                const actual = [String(x?.dealershipId), String(x?.opportunityType).toLowerCase(),
+                                    String(x?.salesOpportunityId), String(x?.contactId)].join('|');
+                                if (actual !== expected || typeof c?.onSelect !== 'function') return false;
+                                c.onSelect({ driver: undefined });
+                                return true;
+                            }, expected);
+                            if (clicked) break;
                             const controls = await card.$$('[ng-click="ctrl.select()"]');
                             try {
                                 for (const control of controls) {
@@ -250,7 +286,7 @@ async (page) => {
                     } finally { await Promise.all(cards.map(x => x.dispose())); }
                 }
                 if (!clicked) throw new Error('Virtual row has no matching visible selection control: ' + expected);
-                await frame.waitForFunction(matchesDetail, detailIdentity, { timeout: Math.min(12000, Math.max(1000, Number(cfg.detail_timeout) || 12000)) });
+                await frame.waitForFunction(matchesDetail, detailIdentity, { timeout: Math.min(15000, Math.max(1000, Number(cfg.detail_timeout) || 15000)), polling: 250 });
                 opened = true;
             } catch (error) {
                 lastError = String(error.message).split('\n')[0];
@@ -265,7 +301,7 @@ async (page) => {
                     const e = document.querySelector('crm-employee-dashboard-opportunity-view crm-activity-timeline');
                     const c = e && angular.element(e).controller('crmActivityTimeline');
                     return c && c.isWaiting === false && String(c.contact?.id) === String(contact);
-                }, todo.contactId, { timeout: 10000 });
+                }, todo.contactId, { timeout: 10000, polling: 250 });
                 timelineState = 'ready';
             } catch { timelineState = 'timeout'; }
         }
