@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -9,6 +10,13 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "127.0.0.1"
     PORT: int = 8000
+    DEALERSOCKET_CONNECTOR_KEY: str = ""
+    DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED: bool = False
+    DEALERSOCKET_PROFILE_DIR: str = ".private/dealersocket-chrome"
+    DEALERSOCKET_CHECK_INTERVAL_SECONDS: int = Field(default=30, ge=10, le=60)
+    DEALERSOCKET_LEAD_SYNC_ENABLED: bool = False
+    DEALERSOCKET_LEAD_SYNC_INTERVAL_SECONDS: int = Field(default=3600, ge=300, le=86400)
+    DEALERSOCKET_LEAD_SNAPSHOT_PATH: str = '.private/dealersocket-leads/latest.json'
 
     model_config = SettingsConfigDict(
         env_file=".env",

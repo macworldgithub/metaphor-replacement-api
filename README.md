@@ -1,5 +1,9 @@
 # Metaphor Replacement API 🎭
 
+DealerSocket Windows session integration: see [Windows connector setup](docs/dealersocket-windows-session.md).
+For read-only terminal snapshots and watch mode, see [live leads worker](docs/dealersocket-live-leads.md).
+Use `run_connector.py` for the browser worker (single process, no reload). The text-processing API below is retained.
+
 A modern, high-performance **FastAPI** service for detecting metaphors and idiomatic expressions in text and transforming them into **literal**, **professional**, or **creative** alternatives.
 
 ---

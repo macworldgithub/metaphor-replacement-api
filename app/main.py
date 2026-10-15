@@ -3,16 +3,23 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from app.config import settings
-from app.routers import health, metaphor
+from app.routers import health, metaphor, dealersocket
+from app.services.dealersocket_session import dealersocket_session
+from app.services.dealersocket_leads import dealersocket_leads
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup lifecycle hook
-    print(f"🚀 Starting {settings.PROJECT_NAME} v{settings.VERSION}")
-    yield
-    # Shutdown lifecycle hook
-    print(f"🛑 Shutting down {settings.PROJECT_NAME}")
+    print(f"Starting {settings.PROJECT_NAME} v{settings.VERSION}")
+    await dealersocket_session.startup()
+    await dealersocket_leads.schedule.startup()
+    try:
+        yield
+    finally:
+        await dealersocket_leads.schedule.shutdown()
+        await dealersocket_leads.shutdown()
+        await dealersocket_session.shutdown()
 
 
 app = FastAPI(
@@ -22,6 +29,9 @@ app = FastAPI(
     ## Metaphor Replacement API 🎭
     A lightweight, extensible API to detect figurative language and metaphors in text
     and replace them with clear, literal, professional, or creative alternatives.
+
+    Includes the authenticated DealerSocket Windows session connector under
+    /dealersocket. Browser login is completed on the automation PC.
     """,
     lifespan=lifespan,
     docs_url="/docs",
@@ -40,6 +50,7 @@ app.add_middleware(
 # Include API Routers
 app.include_router(health.router)
 app.include_router(metaphor.router, prefix=settings.API_V1_STR)
+app.include_router(dealersocket.router)
 
 
 @app.get("/", include_in_schema=False)

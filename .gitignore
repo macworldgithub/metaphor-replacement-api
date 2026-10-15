@@ -12,6 +12,8 @@ env/
 # Environment variables
 .env
 .env.local
+.private/
+dealersocket_browser_profile/
 
 # Testing and coverage
 .pytest_cache/
