@@ -203,3 +203,48 @@ browser-fixture regressions are retained.
 
 The complete live scoped export has not yet been verified. Local browser
 fixtures are not proof that every live DealerSocket layout is supported.
+
+## Continuous read-only portal sync
+
+The CSV downloader is for dated snapshots. Do not use `--resume` as a live
+sync loop because it intentionally skips queues already completed in that
+snapshot. The live worker freshly reads the scoped queues on every poll,
+fingerprints each opportunity, opens details only for new or changed records,
+and sends the Section 6.2 payload to the Nest backend:
+
+```powershell
+python .\outputs\dealersocket_csv_sync\dealersocket_live_worker.py `
+  --env-file .\.env `
+  --state-dir .\downloads\live-sync `
+  --seed-run .\downloads\cranbourne-20261014T091316777956Z `
+  --interval 60 `
+  --send-existing
+```
+
+The first launch above reconciles the current queues against the existing
+89-record import. Existing opportunities are updated idempotently and any lead
+that arrived after that CSV snapshot is added, so there is no cutover gap.
+Every first-poll row is marked as backfill and cannot start an SMS journey.
+After the baseline is saved, the same process continues sending only new or
+changed records through the authenticated `POST /api/leads/ingest` endpoint.
+
+If starting at an exact cutover time with no historical reconciliation, omit
+`--send-existing`; the first poll then establishes a baseline and sends
+nothing.
+
+Set these values in the scraper `.env`:
+
+```dotenv
+DEALERSOCKET_SYNC_API_URL=http://127.0.0.1:3000/api/leads/ingest
+LEAD_FORWARD_SECRET=<same value as the Nest backend>
+```
+
+The worker always sends `startJourney=false`; it has no switch that can
+enable messaging. DealerSocket write-back is separately disabled in the
+backend. Keep signed-in Chrome and the Playwright extension open, and do not
+run the snapshot scraper and live worker against the extension at the same
+time.
+
+Worker state and continuously refreshed CSVs are saved in
+`downloads/live-sync/`. The Automation Monitoring page reads the latest
+worker heartbeat from the backend.
