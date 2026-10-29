@@ -1,4 +1,4 @@
-"""Single-connector hourly reads and atomic private snapshot storage. No CRM writes."""
+"""Single-connector scheduled reads and atomic private snapshot storage. No CRM writes."""
 import asyncio
 import json
 import logging
@@ -65,19 +65,31 @@ class LeadSchedule:
 
     async def tick(self, current=None):
         current = current or datetime.now(timezone.utc)
+        # A successful reauthentication unblocks the failed read immediately.
+        if (isinstance(getattr(self.reader, 'job', None), dict) and self.reader.job.get('state') == 'error'
+                and self.reader.job.get('code') in ('login_required', 'session_unavailable')
+                and self.reader.session.state == 'connected'):
+            self.next_run = current
         if not self.config.DEALERSOCKET_LEAD_SYNC_ENABLED or self.next_run and current < self.next_run:
             return
-        # Fixed cadence, including busy/offline/login failures; never pile up retries.
+        # Reads already in progress satisfy this cycle. Short session checks must
+        # not discard the hour: retry admission after they release the browser.
         self.next_run = current + timedelta(seconds=self.config.DEALERSOCKET_LEAD_SYNC_INTERVAL_SECONDS)
         try:
             self.reader.start(LeadReadOptions(maxRecords=1000, detailLimit=200))
         except RuntimeError:
-            log.info('Scheduled DealerSocket read skipped: browser busy.')
+            if self.reader.session.reader_busy:
+                log.info('Scheduled DealerSocket read skipped: a lead read is already running.')
+            else:
+                self.next_run = current + timedelta(seconds=10)
+                log.info('Scheduled DealerSocket read deferred: session operation busy; retrying shortly.')
 
     async def _watch(self):
         while True:
             # Allow the HTTP server to become available before the first cold-start read.
-            await asyncio.sleep(30)
+            # Poll between the session monitor's 30-second checks; using the same
+            # cadence can repeatedly collide with its browser lock.
+            await asyncio.sleep(5)
             try:
                 await self.tick()
             except Exception:

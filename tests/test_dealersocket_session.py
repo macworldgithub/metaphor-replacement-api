@@ -103,6 +103,28 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.state, "disconnected")
         self.assertFalse(any(roof.verified for roof in result.rooftops))
 
+    async def test_long_read_reports_activity_without_faking_a_fresh_check(self):
+        worker = DealerSocketSession(config())
+        worker.state = 'connected'
+        worker.verified = {'cranbourne_kia'}
+        worker.last_checked = worker.last_connected = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+        worker.reader_busy = True
+        result = worker.status()
+        self.assertEqual((result.state, result.operation), ('connecting', 'read'))
+        self.assertIsNone(result.errorCode)
+        self.assertIn('Lead read in progress', result.message)
+        self.assertEqual(result.lastCheckedAt, worker.last_checked)
+        self.assertEqual(result.lastConnectedAt, worker.last_connected)
+        self.assertFalse(any(roof.verified for roof in result.rooftops))
+        # Once the read ends, an overdue check must still be treated as overdue.
+        worker.reader_busy = False
+        self.assertEqual(worker.status().errorCode, 'check_stale')
+        worker.reader_busy = True
+        for state in ['login_required', 'error', 'disconnected']:
+            worker.state = state
+            self.assertEqual(worker.status().state, state)
+            self.assertNotEqual(worker.status().operation, 'read')
+
     async def test_visible_verification_overlay_revokes_cached_success(self):
         worker = DealerSocketSession(config())
         worker.state = "connected"
@@ -155,6 +177,8 @@ class ConnectorAPITests(unittest.TestCase):
                 self.assertEqual(client.post("/dealersocket/check", headers=headers).status_code, 202)
                 self.assertEqual(client.post("/dealersocket/login/start", headers=headers).status_code, 202)
                 self.assertEqual([call.args[0] for call in start.await_args_list], ["check", "login"])
+                self.assertEqual(client.post('/dealersocket/login/automatic/start', headers=headers).status_code, 202)
+                self.assertEqual(start.await_args_list[-1].args[0], 'automatic_login')
             with patch.object(dealersocket_session, "start", new_callable=AsyncMock, side_effect=PermissionError):
                 self.assertEqual(client.post("/dealersocket/login/start", headers=headers).status_code, 403)
 

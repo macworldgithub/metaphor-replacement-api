@@ -77,6 +77,14 @@ pip install -r requirements.txt
 
 ### 3. Run the Development Server
 
+For the DealerSocket browser connector on Windows, use this command instead of the generic development commands below:
+
+```powershell
+& "C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\python.exe" run_connector.py
+```
+
+Do not run the browser connector with `uvicorn --reload`: the Windows reload worker can use an event loop that cannot start Playwright browser subprocesses, resulting in `browser_unavailable` and stale lead snapshots. Run only one connector process on port 8000. The dedicated profile and saved snapshot are preserved across restarts.
+
 Using the runner script:
 ```powershell
 python run.py

@@ -23,11 +23,30 @@ def snapshot():
 
 
 class ScheduleTests(unittest.IsolatedAsyncioTestCase):
+    async def test_thirty_minute_interval(self):
+        self.schedule.config.DEALERSOCKET_LEAD_SYNC_INTERVAL_SECONDS = 1800
+        current = datetime.now(timezone.utc)
+        await self.schedule.tick(current)
+        self.assertEqual(self.schedule.metadata()['intervalSeconds'], 1800)
+        self.assertEqual(self.schedule.next_run, current + timedelta(minutes=30))
+        await self.schedule.tick(current + timedelta(minutes=29))
+        self.reader.start.assert_called_once()
+        await self.schedule.tick(current + timedelta(minutes=30))
+        self.assertEqual(self.reader.start.call_count, 2)
+
+    async def test_recovered_session_immediately_retries_failed_read(self):
+        self.reader.job = {'state': 'error', 'code': 'login_required'}
+        self.reader.session.state = 'connected'
+        current = datetime.now(timezone.utc)
+        self.schedule.next_run = current + timedelta(hours=1)
+        await self.schedule.tick(current)
+        self.reader.start.assert_called_once()
+
     def setUp(self):
         self.directory=tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.path=Path(self.directory.name)/'private/latest.json'
-        self.reader=Mock(latest=None)
+        self.reader=Mock(latest=None,session=SimpleNamespace(reader_busy=False))
         self.schedule=LeadSchedule(self.reader,config(),self.path)
         self.addAsyncCleanup(self.schedule.shutdown)
 
@@ -42,7 +61,8 @@ class ScheduleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.reader.start.call_count,2)
         self.assertEqual(self.schedule.next_run,current+timedelta(hours=6))
 
-    async def test_busy_browser_skips_hour_without_rapid_retry(self):
+    async def test_running_lead_read_skips_hour_without_duplicate(self):
+        self.reader.session.reader_busy=True
         self.reader.start.side_effect=RuntimeError('busy')
         current=datetime.now(timezone.utc)
         await self.schedule.tick(current)
@@ -51,6 +71,21 @@ class ScheduleTests(unittest.IsolatedAsyncioTestCase):
         self.reader.start.side_effect=None
         await self.schedule.tick(current+timedelta(hours=1))
         self.assertEqual(self.reader.start.call_count,2)
+
+    async def test_session_check_contention_retries_without_losing_hour(self):
+        self.reader.start.side_effect=RuntimeError('browser_busy')
+        current=datetime.now(timezone.utc)
+        await self.schedule.tick(current)
+        self.assertEqual(self.schedule.next_run,current+timedelta(seconds=10))
+        await self.schedule.tick(current+timedelta(seconds=5))
+        self.assertEqual(self.reader.start.call_count,1)
+        # A long login remains a single pending attempt, not multiple queued jobs.
+        await self.schedule.tick(current+timedelta(seconds=10))
+        self.assertEqual(self.schedule.next_run,current+timedelta(seconds=20))
+        self.reader.start.side_effect=None
+        await self.schedule.tick(current+timedelta(seconds=20))
+        self.assertEqual(self.reader.start.call_count,3)
+        self.assertEqual(self.schedule.next_run,current+timedelta(seconds=3620))
 
     async def test_disabled_schedule_loads_snapshot_but_never_reads(self):
         previous=snapshot()

@@ -11,7 +11,7 @@ class RooftopAccess(BaseModel):
 class DealerSocketStatus(BaseModel):
     model_config = ConfigDict(extra="forbid")
     state: Literal["disconnected", "connecting", "connected", "login_required", "error"]
-    operation: Literal["login", "check"] | None = None
+    operation: Literal["login", "check", "read"] | None = None
     lastCheckedAt: str | None = None
     lastConnectedAt: str | None = None
     errorCode: str | None = None

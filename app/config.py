@@ -12,10 +12,16 @@ class Settings(BaseSettings):
     PORT: int = 8000
     DEALERSOCKET_CONNECTOR_KEY: str = ""
     DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED: bool = False
+    DEALERSOCKET_AUTO_LOGIN_ENABLED: bool = False
+    DEALERSOCKET_USERNAME: str = Field(default="", repr=False)
+    DEALERSOCKET_PASSWORD: str = Field(default="", repr=False)
+    DEALERSOCKET_TOTP_SECRET: str = Field(default="", repr=False)
+    DEALERSOCKET_AUTH_HOSTS: str = "bb.dealersocket.com,sso.dealersocket.com,na.login.solera.com"
+    DEALERSOCKET_AUTH_COOLDOWN_SECONDS: int = Field(default=900, ge=60, le=86400)
     DEALERSOCKET_PROFILE_DIR: str = ".private/dealersocket-chrome"
     DEALERSOCKET_CHECK_INTERVAL_SECONDS: int = Field(default=30, ge=10, le=60)
     DEALERSOCKET_LEAD_SYNC_ENABLED: bool = False
-    DEALERSOCKET_LEAD_SYNC_INTERVAL_SECONDS: int = Field(default=3600, ge=300, le=86400)
+    DEALERSOCKET_LEAD_SYNC_INTERVAL_SECONDS: int = Field(default=1800, ge=300, le=86400)
     DEALERSOCKET_LEAD_SNAPSHOT_PATH: str = '.private/dealersocket-leads/latest.json'
 
     model_config = SettingsConfigDict(

@@ -55,6 +55,16 @@ async def read_leads(options: LeadReadOptions):
         raise HTTPException(409, "Another browser operation is running. Retry after it completes.") from None
 
 
+@router.post('/login/automatic/start', response_model=DealerSocketStatus, status_code=202)
+async def automatic_login():
+    try:
+        return await dealersocket_session.start('automatic_login')
+    except PermissionError:
+        raise HTTPException(403, 'Visible automatic login is disabled in the connector settings.') from None
+    except RuntimeError:
+        raise HTTPException(409, 'The browser is busy. Wait for the current operation to finish.') from None
+
+
 @router.get("/leads/status")
 async def lead_status():
     return dealersocket_leads.status()
