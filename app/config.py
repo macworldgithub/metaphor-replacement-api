@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "127.0.0.1"
     PORT: int = 8000
+    DOCS_ENABLED: bool = True
+    CORS_ORIGINS: str = ''
     DEALERSOCKET_CONNECTOR_KEY: str = ""
     DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED: bool = False
     DEALERSOCKET_AUTO_LOGIN_ENABLED: bool = False
