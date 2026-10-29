@@ -388,7 +388,7 @@ async def run(args) -> int:
     load_dotenv(args.env_file)
     args.secret = (args.secret or os.getenv("LEAD_FORWARD_SECRET", "")).strip()
     args.ingest_url = (args.ingest_url or os.getenv(
-        "DEALERSOCKET_SYNC_API_URL", "http://127.0.0.1:3000/api/leads/ingest"
+        "DEALERSOCKET_SYNC_API_URL", "https://www.cranbourne-backend.omnisuiteai.com/api/leads/ingest"
     )).strip()
     args.heartbeat_url = args.ingest_url.rsplit("/", 1)[0] + "/connector-heartbeat"
     if not args.secret:

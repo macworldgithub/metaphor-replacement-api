@@ -235,7 +235,7 @@ nothing.
 Set these values in the scraper `.env`:
 
 ```dotenv
-DEALERSOCKET_SYNC_API_URL=http://127.0.0.1:3000/api/leads/ingest
+DEALERSOCKET_SYNC_API_URL=https://www.cranbourne-backend.omnisuiteai.com/api/leads/ingest
 LEAD_FORWARD_SECRET=<same value as the Nest backend>
 ```
 

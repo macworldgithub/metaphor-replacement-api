@@ -110,7 +110,7 @@ def main():
     parser.add_argument("--cycles", type=int, default=0, help="Watch iterations; 0 means until Ctrl+C")
     parser.add_argument("--json", action="store_true", help="Print complete snapshot JSON including customer data")
     parser.add_argument("--summary-only", action="store_true")
-    parser.add_argument("--connector-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--connector-url", default="https://cranbourne-automation.omnisuiteai.com")
     args = parser.parse_args()
     if args.interval < 10 or not 1 <= args.max_records <= 1000 or not 0 <= args.detail_limit <= 200 or args.cycles < 0:
         parser.error("Use interval >=10, max-records 1–1000, detail-limit 0–200 and cycles >=0.")

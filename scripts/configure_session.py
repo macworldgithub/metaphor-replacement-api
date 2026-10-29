@@ -43,6 +43,6 @@ if __name__ == "__main__":
         **({"DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED": "true"} if args.enable_login else {}),
     })
     update(backend_env, {"DEALERSOCKET_CONNECTOR_KEY": key,
-                         "DEALERSOCKET_CONNECTOR_URL": "http://127.0.0.1:8000"})
+                         "DEALERSOCKET_CONNECTOR_URL": "https://cranbourne-automation.omnisuiteai.com"})
     print("Connector and Nest backend configured with a matching private key. No secret values were printed.")
     print("Restart the backend and start run_connector.py. Login opens on this Windows desktop.")
