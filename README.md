@@ -1,5 +1,7 @@
 # Metaphor Replacement API 🎭
 
+Production VPS deployment uses `requirements-production.txt` and a single systemd-managed connector process. Shared deployment and update scripts are versioned in the [backend repository's deploy folder](https://github.com/macworldgithub/booran-metador-replacement/tree/master/deploy). Automation updates deploy from this repository's `main` branch.
+
 DealerSocket Windows session integration: see [Windows connector setup](docs/dealersocket-windows-session.md).
 For read-only terminal snapshots and watch mode, see [live leads worker](docs/dealersocket-live-leads.md).
 Use `run_connector.py` for the browser worker (single process, no reload). The text-processing API below is retained.

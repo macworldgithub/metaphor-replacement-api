@@ -180,6 +180,7 @@ class DealerSocketSession:
         self.playwright = await async_playwright().start()
         self.context = await self.playwright.chromium.launch_persistent_context(
             user_data_dir=str(profile), channel="chrome", headless=not visible,
+            chromium_sandbox=os.name != "nt",
             viewport={"width": 1440, "height": 900}, timezone_id="Australia/Melbourne",
         )
         self.page = self.context.pages[0] if self.context.pages else await self.context.new_page()

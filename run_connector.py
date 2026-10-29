@@ -1,4 +1,4 @@
-"""Windows connector entry point: one worker, no reload, loopback binding."""
+"""Production connector entry point: one worker, no reload, loopback binding."""
 import asyncio
 import os
 from pathlib import Path
@@ -16,4 +16,5 @@ if __name__ == "__main__":
         # Playwright needs subprocess support on Windows.
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     uvicorn.run("app.main:app", host="127.0.0.1", port=settings.PORT,
-                workers=1, reload=False, loop="asyncio")
+                workers=1, reload=False, loop="asyncio", proxy_headers=True,
+                forwarded_allow_ips="127.0.0.1", timeout_graceful_shutdown=40)
