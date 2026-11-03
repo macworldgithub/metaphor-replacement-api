@@ -6,6 +6,7 @@ from app.config import settings
 from app.routers import health, dealersocket
 from app.services.dealersocket_session import dealersocket_session
 from app.services.dealersocket_leads import dealersocket_leads
+from app.services.dealersocket_campaign_writer import campaign_writer
 
 
 @asynccontextmanager
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await campaign_writer.shutdown()
         await dealersocket_leads.schedule.shutdown()
         await dealersocket_leads.shutdown()
         await dealersocket_session.shutdown()

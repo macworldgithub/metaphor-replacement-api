@@ -19,6 +19,24 @@ _spec.loader.exec_module(rules)
 
 
 async def collect_snapshot(browser, options, progress=None):
+    # Each campaign uses an isolated rules module; never mutate the existing reader's scope.
+    selected_rules = rules
+    if options.scope == 'south_morang_hyundai':
+        selected_rules = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(selected_rules)
+        selected_rules.ROOFTOPS = ['South Morang Hyundai']
+        def canonical(label):
+            return 'South Morang Hyundai' if selected_rules.label_key(label) in {
+                'southmoranghyundai', 'southmoranghyundainew', 'southmoranghyundaiused',
+                'southmoranghyundaiusedcars', 'hyundaisouthmorangusedcars',
+                'hyundaisouthmorang', 'hyundaisouthmorangnew', 'hyundaisouthmorangused',
+            } else ''
+        selected_rules.canonical_rooftop = canonical
+        selected_rules.target_filter = lambda item: (True, selected_rules.ALIASES.get(item.get('category'), item.get('category')) in selected_rules.FAST_CATEGORIES)
+    return await _collect_snapshot(browser, options, selected_rules, progress)
+
+
+async def _collect_snapshot(browser, options, rules, progress=None):
     started = now()
     clock = monotonic()
     records, coverage, errors, review, listed, jobs = {}, [], [], [], {}, []
@@ -31,6 +49,8 @@ async def collect_snapshot(browser, options, progress=None):
     limited, snapshot = False, None
     try:
         for site in original["sites"]:
+            if options.scope == 'south_morang_hyundai' and rules.label_key(site['name']) not in {'southmoranghyundai', 'booransouthmoranghyundai'}:
+                continue
             if progress:
                 progress("reading_filter_catalog", siteId=str(site["id"]))
             try:
@@ -125,6 +145,7 @@ async def collect_snapshot(browser, options, progress=None):
         partial = bool(errors or review or limited or not jobs or any(not r["detail_extracted"] for r in records.values())
                        or any(roof["recordCount"] == 0 for roof in roofs))
         snapshot = {"state":"partial" if partial else "complete", "startedAt":started, "fetchedAt":now(),
+            "scope": options.scope,
             "durationSeconds":round(monotonic()-clock,2), "records":list(records.values()),
             "rooftops":roofs, "coverage":coverage, "errors":errors, "review":review,
             "limited":limited, "detailReads":details, "readOnly":True,
@@ -148,9 +169,16 @@ class DealerSocketLeadReader:
         self.task = None
         self.job = None
         self.latest = None
+        self.latest_by_scope = {}
         self.schedule = LeadSchedule(self)
 
-    def status(self):
+    def status(self, scope=None):
+        if scope:
+            latest = self.latest_by_scope.get(scope) or (self.latest if self.latest and self.latest.get('scope', 'cranbourne') == scope else None)
+            job = self.job if self.job and self.job.get('scope', 'cranbourne') == scope else None
+            if latest:
+                return {**latest, **(job if job and job.get('state') in ('running', 'error') else {}), 'snapshotState': latest['state'], 'schedule': self.schedule.metadata()}
+            return {**(job or {'state': 'idle', 'records': [], 'readOnly': True}), 'scope': scope, 'snapshotState': None, 'schedule': self.schedule.metadata()}
         job = self.job or {"state":"idle", "readOnly":True}
         if self.latest and job['state'] in ('idle', 'running', 'error'):
             # Old data keeps its original observation time, even when a refresh fails.
@@ -165,7 +193,7 @@ class DealerSocketLeadReader:
         if self.task and not self.task.done() or self.session.reader_busy or self.session.lock.locked() or self.session.task and not self.session.task.done():
             raise RuntimeError("browser_busy")
         self.session.reader_busy = True
-        self.job = {"state":"running", "jobId":str(uuid4()), "startedAt":now(), "readOnly":True}
+        self.job = {"state":"running", "jobId":str(uuid4()), "startedAt":now(), "readOnly":True, "scope":getattr(options, 'scope', 'cranbourne')}
         self.task = asyncio.create_task(self._run(options))
         return self.status()
 
@@ -189,6 +217,7 @@ class DealerSocketLeadReader:
                     result["totalDurationSeconds"] = round(monotonic()-job_clock,2)
                     self.job = {**self.job, **result}
                     self.latest = self.job.copy()
+                    self.latest_by_scope[getattr(options, 'scope', 'cranbourne')] = self.latest
                     await self.schedule.save(self.latest)
         except asyncio.CancelledError:
             self.job = {**self.job, "state":"error", "code":"read_cancelled"}

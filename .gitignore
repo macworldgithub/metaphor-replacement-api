@@ -26,6 +26,7 @@ htmlcov/
 *.swp
 
 # DealerSocket Automation & Scraper Artifacts
+/.playwright-mcp/
 downloads/
 dealersocket_profile/
 dealersocket_state.json
