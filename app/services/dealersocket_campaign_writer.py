@@ -123,7 +123,7 @@ class CampaignWriter:
                 saved = await frame.wait_for_function("""marker=>{
                     for(const [tag,name] of [['crm-add-sales-opportunity','crmAddSalesOpportunity'],['crm-sales-opportunity-detail-view','crmSalesOpportunityDetailView']]){
                         const e=document.querySelector(tag),c=e&&window.angular.element(e).controller(name),s=c?.salesOpportunity;
-                        if(s?.id && s.description===marker && String(s.dealershipId)==='10876')return {id:String(s.id)};
+                        if(/^[1-9][0-9]*$/.test(String(s?.id||'')) && s.description===marker && String(s.dealershipId)==='10876')return {id:String(s.id)};
                     } return false;
                 }""", arg=marker, timeout=30000)
                 result = await saved.json_value()

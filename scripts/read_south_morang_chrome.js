@@ -1,9 +1,12 @@
 async (page) => {
   const stamp=()=>new Date().toISOString();
+  if(await page.locator('md-select#select_1').count()===0)throw Error('DealerSocket sign-in is required in this Chrome worker tab');
   const selected=await page.locator('md-select#select_1 .md-select-value,md-select#select_1 md-select-value').first().innerText();
   if(selected.trim()!=='South Morang Hyundai'){
     await page.locator('md-select#select_1').click();
     await page.getByRole('option',{name:'South Morang Hyundai',exact:true}).click();
+    await page.waitForURL('**/#/homepage',{timeout:30000});
+    await page.locator('#app-loading-overlay').waitFor({state:'hidden'});
     await page.waitForFunction(()=>{const e=document.querySelector('md-select#select_1 .md-select-value,md-select#select_1 md-select-value');return e?.textContent.trim()==='South Morang Hyundai';});
   }
   const startedAt=stamp(), records=new Map(),coverage=[];

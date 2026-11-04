@@ -72,21 +72,23 @@ async def main(once):
                             snapshot=result_value(await session.call_tool(tool,{'code':(ROOT/'scripts/read_south_morang_chrome.js').read_text(encoding='utf-8')}))
                         except RuntimeError as error:
                             if once:raise
+                            response=await api.post('/api/worker/chrome/claim',json={'authenticated':False});response.raise_for_status()
                             print(str(error)+'. Read paused; keeping the Chrome connection for recovery.',flush=True)
-                            await asyncio.sleep(30)
-                            continue
-                        response=await api.post('/api/worker/chrome/snapshot',json=snapshot);response.raise_for_status()
-                        print(f'Hyundai snapshot refreshed: {len(snapshot["records"])} scoped records.',flush=True)
-                        if not catalog_sent and snapshot['records']:
-                            try:
-                                code=(ROOT/'scripts/read_south_morang_catalog.js').read_text(encoding='utf-8').replace('__CONTACT_ID__',json.dumps(snapshot['records'][0]['customer_id']))
-                                catalog=result_value(await session.call_tool(tool,{'code':code}))
-                                response=await api.post('/api/worker/chrome/catalog',json=catalog);response.raise_for_status();catalog_sent=True
-                                print('Hyundai assignee and franchise catalog refreshed without saving a CRM record.',flush=True)
-                            except Exception:print('Assignee catalog refresh deferred; existing verified options retained.',flush=True)
-                        next_read=asyncio.get_running_loop().time()+max(300,int(os.getenv('DEALERSOCKET_LEAD_SYNC_INTERVAL_SECONDS','1800')))
+                            snapshot=None
+                            next_read=asyncio.get_running_loop().time()+60
+                        if snapshot is not None:
+                            response=await api.post('/api/worker/chrome/snapshot',json=snapshot);response.raise_for_status()
+                            print(f'Hyundai snapshot refreshed: {len(snapshot["records"])} scoped records.',flush=True)
+                            if not catalog_sent and snapshot['records']:
+                                try:
+                                    code=(ROOT/'scripts/read_south_morang_catalog.js').read_text(encoding='utf-8').replace('__CONTACT_ID__',json.dumps(snapshot['records'][0]['customer_id']))
+                                    catalog=result_value(await session.call_tool(tool,{'code':code}))
+                                    response=await api.post('/api/worker/chrome/catalog',json=catalog);response.raise_for_status();catalog_sent=True
+                                    print('Hyundai assignee and franchise catalog refreshed without saving a CRM record.',flush=True)
+                                except Exception:print('Assignee catalog refresh deferred; existing verified options retained.',flush=True)
+                            next_read=asyncio.get_running_loop().time()+max(300,int(os.getenv('DEALERSOCKET_LEAD_SYNC_INTERVAL_SECONDS','1800')))
                     if once:return
-                    check=result_value(await session.call_tool(tool,{'code':"async(page)=>({authenticated:page.url().startsWith('https://bb.dealersocket.com/')&&await page.locator('iframe#app-crm').isVisible()&&await page.locator('input[type=password]:visible').count()===0})"}))
+                    check=result_value(await session.call_tool(tool,{'code':"async(page)=>{let authenticated=page.url().startsWith('https://bb.dealersocket.com/')&&await page.locator('iframe#app-crm').isVisible()&&await page.locator('input[type=password]:visible').count()===0;if(authenticated){const selector=page.locator('md-select#select_1 .md-select-value,md-select#select_1 md-select-value').first();if((await selector.innerText()).trim()!=='South Morang Hyundai'){await page.locator('md-select#select_1').click();await page.getByRole('option',{name:'South Morang Hyundai',exact:true}).click();await page.waitForURL('**/#/homepage',{timeout:30000});await page.locator('#app-loading-overlay').waitFor({state:'hidden'});await page.goto('https://bb.dealersocket.com/#/crm/employee?todoType=opportunities&dealershipId=10876&filterId=36');await page.locator('iframe#app-crm').waitFor({state:'visible'});}authenticated=(await selector.innerText()).trim()==='South Morang Hyundai';}return{authenticated};}"}))
                     response=await api.post('/api/worker/chrome/claim',json=check);response.raise_for_status();job=response.json()
                     if job.get('refreshRequested'):next_read=0
                     if job.get('leadId'):
@@ -114,6 +116,23 @@ async def main(once):
                             save_journal(path,result)
                         response=await api.post('/api/worker/chrome/results/'+job['leadId'],json=result);response.raise_for_status()
                         print('CRM job completed: '+result['state'],flush=True)
+                    response=await api.post('/api/worker/chrome/sms/claim',json=check);response.raise_for_status();activity=response.json()
+                    if activity.get('id'):
+                        path=output/'sms-journal'/(activity['id']+'.json')
+                        saved=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+                        if saved.get('state') in ('saving','needs_review','synced') or activity.get('reconcile'):
+                            result=saved if saved.get('state')=='synced' else {'state':'needs_review'}
+                        elif not activity.get('contactId') or not activity.get('opportunityId'):
+                            result={'state':'needs_match'}
+                        else:
+                            save_journal(path,{'state':'saving','id':activity['id']})
+                            try:
+                                code=(ROOT/'scripts/write_south_morang_sms_activity.js').read_text(encoding='utf-8').replace('__SMS_ACTIVITY__',json.dumps(activity))
+                                result=result_value(await session.call_tool(tool,{'code':code}))
+                            except Exception:result={'state':'needs_review'}
+                            save_journal(path,result)
+                        response=await api.post('/api/worker/chrome/sms/results/'+activity['id'],json=result);response.raise_for_status()
+                        print('SMS activity job completed: '+result['state'],flush=True)
                     await asyncio.sleep(5)
 
 if __name__=='__main__':
