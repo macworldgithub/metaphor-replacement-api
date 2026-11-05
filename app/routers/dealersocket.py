@@ -88,8 +88,8 @@ async def check():
 async def login():
     try:
         return await dealersocket_session.start("login")
-    except PermissionError:
-        raise HTTPException(403, "Interactive login is disabled on the automation PC.") from None
+    except PermissionError as error:
+        raise HTTPException(403, str(error)) from None
     except RuntimeError:
         raise HTTPException(409, "The browser is reading leads. Wait for the snapshot to finish.") from None
 

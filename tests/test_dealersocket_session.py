@@ -20,6 +20,24 @@ def config(**overrides):
 
 
 class SessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_linux_automatic_login_opens_headless_browser(self):
+        worker = DealerSocketSession(config(DEALERSOCKET_AUTO_LOGIN_ENABLED=True))
+        worker._open = AsyncMock()
+        async def connected():
+            worker.state = 'connected'
+            return True
+        worker._probe = AsyncMock(side_effect=connected)
+        with patch('app.services.dealersocket_session.os.name', 'posix'):
+            await worker._run('automatic_login')
+        worker._open.assert_awaited_once_with(visible=False)
+
+    async def test_linux_manual_login_requires_display(self):
+        worker = DealerSocketSession(config())
+        with patch('app.services.dealersocket_session.os.name', 'posix'), patch.dict('os.environ', {}, clear=True):
+            with self.assertRaisesRegex(PermissionError, 'DISPLAY'):
+                await worker.start('login')
+        self.assertIsNone(worker.task)
+
     async def test_repeated_actions_return_immediately_while_browser_is_busy(self):
         worker = DealerSocketSession(config())
         gate = asyncio.Event()

@@ -160,6 +160,8 @@ class DealerSocketSession:
             raise PermissionError("Interactive login is disabled on the automation PC.")
         if operation == 'automatic_login' and not getattr(self.config, 'DEALERSOCKET_AUTO_LOGIN_ENABLED', False):
             raise PermissionError('Automatic login is disabled in the connector settings.')
+        if operation == 'login' and os.name != 'nt' and not os.environ.get('DISPLAY'):
+            raise PermissionError('Manual login requires a Linux desktop with DISPLAY configured. Use automatic login on a headless server.')
         self.state, self.operation = "connecting", 'login' if operation == 'automatic_login' else operation
         self.error_code, self.verified = None, set()
         self.message = ('Opening Chrome for automatic password and authenticator verification.' if operation == 'automatic_login'
@@ -237,7 +239,10 @@ class DealerSocketSession:
         try:
             async with self.lock:
                 if operation in ('login', 'automatic_login') or not self.context or not self.page or self.page.is_closed():
-                    await self._open(visible=operation in ('login', 'automatic_login'))
+                    visible = operation == 'login' or (
+                        operation == 'automatic_login' and os.name == 'nt'
+                    )
+                    await self._open(visible=visible)
                 else:
                     await self.page.goto(BASE, wait_until="domcontentloaded", timeout=30000)
                 # Login has five minutes for a human; regular checks allow SPA rendering.
@@ -275,6 +280,13 @@ class DealerSocketSession:
     async def _watch(self):
         while True:
             await asyncio.sleep(max(10, self.config.DEALERSOCKET_CHECK_INTERVAL_SECONDS))
+            if self.state == 'login_required' and (
+                self.error_code == 'auto_login_manual_required'
+                or self.auth_attempts >= MAX_AUTH_ATTEMPTS
+                or time.time() < self.auth_next_attempt
+            ):
+                # Keep the failure visible until recovery is allowed or explicitly requested.
+                continue
             if (self.context or getattr(self.config, 'DEALERSOCKET_AUTO_LOGIN_ENABLED', False)) and not self.reader_busy and not (self.task and not self.task.done()):
                 # Use a full navigation so a stale loaded page is not treated as valid indefinitely.
                 await self.start("check")
