@@ -99,6 +99,9 @@ async def main(once):
                     if job.get('leadId'):
                         path=output/'journal'/(job['leadId']+'.json')
                         saved=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+                        if job.get('journalResetRequested'):
+                            saved={}
+                            save_journal(path,{'state':'preparing','leadId':job['leadId'],'operatorReconciled':True})
                         if saved.get('state') in ('saving','needs_review','synced') or job.get('reconcile'):
                             result=saved if saved.get('state')=='synced' else {'state':'needs_review'}
                         else:
