@@ -239,8 +239,10 @@ class DealerSocketSession:
         try:
             async with self.lock:
                 if operation in ('login', 'automatic_login') or not self.context or not self.page or self.page.is_closed():
-                    visible = operation == 'login' or (
-                        operation == 'automatic_login' and os.name == 'nt'
+                    visible = (
+                        operation == 'login'
+                        or getattr(self.config, 'DEALERSOCKET_BROWSER_VIEWER_ENABLED', False)
+                        or (operation == 'automatic_login' and os.name == 'nt')
                     )
                     await self._open(visible=visible)
                 else:

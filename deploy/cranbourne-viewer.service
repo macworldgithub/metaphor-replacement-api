@@ -1,0 +1,16 @@
+[Unit]
+Description=Private Cranbourne automation VNC
+Requires=cranbourne-display.service
+After=cranbourne-display.service
+
+[Service]
+User=cranbourne
+Group=cranbourne
+ExecStart=/usr/bin/x11vnc -display :99 -localhost -rfbport 5901 -forever -shared -nopw
+Restart=on-failure
+RestartSec=3
+PrivateTmp=false
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

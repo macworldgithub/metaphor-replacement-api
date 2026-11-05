@@ -1,0 +1,15 @@
+[Unit]
+Description=Cranbourne noVNC loopback gateway
+Requires=cranbourne-viewer.service
+After=cranbourne-viewer.service
+
+[Service]
+User=cranbourne
+Group=cranbourne
+ExecStart=/usr/bin/websockify --web=/usr/share/novnc 127.0.0.1:6080 127.0.0.1:5901
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     DEALERSOCKET_CONNECTOR_KEY: str = ""
     DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED: bool = False
     DEALERSOCKET_AUTO_LOGIN_ENABLED: bool = False
+    DEALERSOCKET_BROWSER_VIEWER_ENABLED: bool = False
     DEALERSOCKET_CAMPAIGN_WRITES_ENABLED: bool = False
     DEALERSOCKET_USERNAME: str = Field(default="", repr=False)
     DEALERSOCKET_PASSWORD: str = Field(default="", repr=False)
