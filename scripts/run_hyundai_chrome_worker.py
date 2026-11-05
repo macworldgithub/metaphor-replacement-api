@@ -17,6 +17,11 @@ from mcp.client.stdio import stdio_client
 
 ROOT=Path(__file__).resolve().parents[1]
 
+def browser_child_environment(environment):
+    private_prefixes=('DEALERSOCKET_','MOBILEMESSAGE_','PORTAL_','LEAD_','MONGODB_','GOODSHOWROOM_','SMS_','CAMPAIGN_')
+    return {key:value for key,value in environment.items() if not key.startswith(private_prefixes)}
+
+
 def result_value(result):
     text='\n'.join(block.text for block in result.content if getattr(block,'type',None)=='text')
     if result.isError or '### Error' in text:
@@ -50,7 +55,7 @@ async def main(once):
     else:
         import fcntl
         fcntl.flock(lease.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
-    environment={k:v for k,v in os.environ.items() if not k.startswith(('DEALERSOCKET_','MOBILEMESSAGE_','PORTAL_','LEAD_'))}
+    environment=browser_child_environment(os.environ)
     params=StdioServerParameters(command=command,args=([local_cli] if local_cli else ['-y','@playwright/mcp@0.0.83'])+['--extension','--browser','chrome','--output-dir',str(output)],cwd=str(ROOT),env=environment)
     print('Connecting to authenticated Chrome. Accept its share-tab prompt if shown.',flush=True)
     async with httpx.AsyncClient(base_url=os.getenv('CAMPAIGN_BACKEND_URL','http://127.0.0.1:4000'),headers={'X-Portal-Key':key},timeout=30,transport=httpx.AsyncHTTPTransport(retries=5)) as api:
@@ -116,23 +121,24 @@ async def main(once):
                             save_journal(path,result)
                         response=await api.post('/api/worker/chrome/results/'+job['leadId'],json=result);response.raise_for_status()
                         print('CRM job completed: '+result['state'],flush=True)
-                    response=await api.post('/api/worker/chrome/sms/claim',json=check);response.raise_for_status();activity=response.json()
-                    if activity.get('id'):
-                        path=output/'sms-journal'/(activity['id']+'.json')
-                        saved=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
-                        if saved.get('state') in ('saving','needs_review','synced') or activity.get('reconcile'):
-                            result=saved if saved.get('state')=='synced' else {'state':'needs_review'}
-                        elif not activity.get('contactId') or not activity.get('opportunityId'):
-                            result={'state':'needs_match'}
-                        else:
-                            save_journal(path,{'state':'saving','id':activity['id']})
-                            try:
-                                code=(ROOT/'scripts/write_south_morang_sms_activity.js').read_text(encoding='utf-8').replace('__SMS_ACTIVITY__',json.dumps(activity))
-                                result=result_value(await session.call_tool(tool,{'code':code}))
-                            except Exception:result={'state':'needs_review'}
-                            save_journal(path,result)
-                        response=await api.post('/api/worker/chrome/sms/results/'+activity['id'],json=result);response.raise_for_status()
-                        print('SMS activity job completed: '+result['state'],flush=True)
+                    if os.getenv('SMS_CHANNEL_MODE','one_way')=='two_way' and os.getenv('DEALERSOCKET_SMS_ACTIVITY_ENABLED')=='true':
+                        response=await api.post('/api/worker/chrome/sms/claim',json=check);response.raise_for_status();activity=response.json()
+                        if activity.get('id'):
+                            path=output/'sms-journal'/(activity['id']+'.json')
+                            saved=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+                            if saved.get('state') in ('saving','needs_review','synced') or activity.get('reconcile'):
+                                result=saved if saved.get('state')=='synced' else {'state':'needs_review'}
+                            elif not activity.get('contactId') or not activity.get('opportunityId'):
+                                result={'state':'needs_match'}
+                            else:
+                                save_journal(path,{'state':'saving','id':activity['id']})
+                                try:
+                                    code=(ROOT/'scripts/write_south_morang_sms_activity.js').read_text(encoding='utf-8').replace('__SMS_ACTIVITY__',json.dumps(activity))
+                                    result=result_value(await session.call_tool(tool,{'code':code}))
+                                except Exception:result={'state':'needs_review'}
+                                save_journal(path,result)
+                            response=await api.post('/api/worker/chrome/sms/results/'+activity['id'],json=result);response.raise_for_status()
+                            print('SMS activity job completed: '+result['state'],flush=True)
                     await asyncio.sleep(5)
 
 if __name__=='__main__':
