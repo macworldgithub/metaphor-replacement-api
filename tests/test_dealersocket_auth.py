@@ -104,19 +104,22 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(error.exception.code, 'auto_login_credentials_missing')
             self.assertEqual(worker.auth_attempts, 0)
 
-    async def test_cooldown_survives_restart_and_blocks_submission(self):
+    async def test_legacy_cooldown_does_not_block_submission_after_restart(self):
         with tempfile.TemporaryDirectory() as folder:
             worker = DealerSocketSession(config(folder))
             with patch.object(DealerSocketLogin, 'run', new_callable=AsyncMock,
                               side_effect=LoginRequired('auto_login_timeout', 'Retry later')) as run:
                 with self.assertRaises(LoginRequired):
                     await worker._automatic_login()
+                worker.auth_next_attempt = 9999999999
+                worker._save_auth_recovery()
                 restarted = DealerSocketSession(config(folder))
                 with self.assertRaises(LoginRequired) as error:
                     await restarted._automatic_login()
-                self.assertEqual(error.exception.code, 'auto_login_cooldown')
-                self.assertEqual(run.await_count, 1)
-                self.assertEqual(restarted.auth_attempts, 1)
+                self.assertEqual(error.exception.code, 'auto_login_timeout')
+                self.assertEqual(run.await_count, 2)
+                self.assertEqual(restarted.auth_attempts, 2)
+                self.assertEqual(restarted.auth_next_attempt, 0)
 
     async def test_saved_seven_attempts_do_not_block_updated_credentials(self):
         with tempfile.TemporaryDirectory() as folder:

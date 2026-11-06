@@ -3,7 +3,6 @@ import asyncio
 import os
 import re
 import json
-import time
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -86,12 +85,13 @@ class DealerSocketSession:
             try:
                 saved = json.loads(self.auth_state_path.read_text(encoding='utf-8'))
                 self.auth_attempts = max(0, int(saved['attempts']))
-                self.auth_next_attempt = max(0, float(saved['nextAttemptAt']))
+                # Ignore legacy persisted cooldown timestamps.
+                self.auth_next_attempt = 0
             except FileNotFoundError:
                 pass
             except (OSError, ValueError, TypeError, KeyError):
                 self.auth_attempts = 0
-                self.auth_next_attempt = time.time() + self.config.DEALERSOCKET_AUTH_COOLDOWN_SECONDS
+                self.auth_next_attempt = 0
 
     def _save_auth_recovery(self):
         if self.auth_state_path:
@@ -104,11 +104,9 @@ class DealerSocketSession:
     async def _automatic_login(self):
         login = DealerSocketLogin(self.config)
         login.validate()
-        if time.time() < self.auth_next_attempt:
-            raise LoginRequired('auto_login_cooldown', 'Automatic login is cooling down. Complete login manually or wait for the next retry.')
-        # Persist the cooldown before submitting credentials; attempt count is diagnostic only.
+        # Attempt count is diagnostic only; no cooldown or permanent retry limit.
         self.auth_attempts += 1
-        self.auth_next_attempt = time.time() + self.config.DEALERSOCKET_AUTH_COOLDOWN_SECONDS
+        self.auth_next_attempt = 0
         self._save_auth_recovery()
         self.message = 'Completing normal DealerSocket password and authenticator verification.'
         await login.run(self.page, self._probe)
@@ -272,7 +270,6 @@ class DealerSocketSession:
             await asyncio.sleep(max(10, self.config.DEALERSOCKET_CHECK_INTERVAL_SECONDS))
             if self.state == 'login_required' and (
                 self.error_code == 'auto_login_manual_required'
-                or time.time() < self.auth_next_attempt
             ):
                 # Keep the failure visible until recovery is allowed or explicitly requested.
                 continue
