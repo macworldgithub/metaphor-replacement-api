@@ -3,6 +3,7 @@ import asyncio
 import os
 import re
 import json
+import logging
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,7 @@ ROOFTOPS = (
     ("cranbourne_mg", "Cranbourne MG"),
     ("geely_cranbourne", "Geely Cranbourne"),
 )
+logger = logging.getLogger(__name__)
 BASE = "https://bb.dealersocket.com/#/homepage"
 
 
@@ -109,7 +111,9 @@ class DealerSocketSession:
         self.auth_next_attempt = 0
         self._save_auth_recovery()
         self.message = 'Completing normal DealerSocket password and authenticator verification.'
+        logger.info('DealerSocket automatic recovery started')
         await login.run(self.page, self._probe)
+        logger.info('DealerSocket automatic recovery verified')
 
     def status(self):
         # Reads own the browser, intentionally suspending the homepage checks.
@@ -142,7 +146,7 @@ class DealerSocketSession:
                 # Never present an already-running manual action as automatic login.
                 raise RuntimeError('browser_busy')
             return self.status()
-        if operation in ('login', 'automatic_login') and not self.config.DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED:
+        if operation == 'login' and not self.config.DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED:
             raise PermissionError("Interactive login is disabled on the automation PC.")
         if operation == 'automatic_login' and not getattr(self.config, 'DEALERSOCKET_AUTO_LOGIN_ENABLED', False):
             raise PermissionError('Automatic login is disabled in the connector settings.')
@@ -250,6 +254,7 @@ class DealerSocketSession:
                     self.auth_next_attempt = 0
                     self._save_auth_recovery()
         except LoginRequired as error:
+            logger.warning('DealerSocket recovery stopped: %s; %s', error.code, str(error))
             self.state, self.verified = 'login_required', set()
             self.error_code, self.message = error.code, str(error)
         except asyncio.CancelledError:

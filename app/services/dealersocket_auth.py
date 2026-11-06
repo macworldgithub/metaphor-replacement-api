@@ -112,4 +112,5 @@ class DealerSocketLogin:
                 submitted.add('username')
                 await self.submit(page, user)
             await asyncio.sleep(1)
-        raise LoginRequired('auto_login_manual_required', 'Automatic login did not complete. Check credentials or complete login manually.')
+        stage = 'authenticator submitted' if 'otp' in submitted else 'password submitted' if 'password' in submitted else 'username submitted' if 'username' in submitted else 'waiting for a recognized login form'
+        raise LoginRequired('auto_login_timeout', f'Automatic login timed out ({stage}). Background recovery will retry.')

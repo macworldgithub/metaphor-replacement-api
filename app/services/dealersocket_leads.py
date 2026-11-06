@@ -1,6 +1,7 @@
 """Read-only CRM snapshots with private last-result persistence and scheduled reads."""
 import asyncio
 import importlib.util
+import logging
 from pathlib import Path
 from time import monotonic
 from uuid import uuid4
@@ -10,6 +11,8 @@ from app.models.dealersocket_leads import LeadReadOptions
 from app.services.dealersocket_lead_browser import LeadBrowser
 from app.services.dealersocket_session import dealersocket_session, now
 from app.services.dealersocket_lead_schedule import LeadSchedule
+
+log = logging.getLogger(__name__)
 
 # Reuse the existing scoped normalization/mapping rules, not its CLI/MCP runner.
 _path = Path(__file__).resolve().parents[2] / "outputs/dealersocket_csv_sync/download_dealersocket_chrome.py"
@@ -194,6 +197,7 @@ class DealerSocketLeadReader:
             raise RuntimeError("browser_busy")
         self.session.reader_busy = True
         self.job = {"state":"running", "jobId":str(uuid4()), "startedAt":now(), "readOnly":True, "scope":getattr(options, 'scope', 'cranbourne')}
+        log.info('DealerSocket lead refresh started job=%s', self.job['jobId'])
         self.task = asyncio.create_task(self._run(options))
         return self.status()
 
@@ -206,6 +210,7 @@ class DealerSocketLeadReader:
                 if self.session.state != "connected":
                     self.job = {**self.job, "state":"error", "code":"login_required" if self.session.state=="login_required" else "session_unavailable",
                                 "message":self.session.message, "fetchedAt":now()}
+                    log.warning('DealerSocket lead refresh stopped job=%s code=%s auth_code=%s', self.job['jobId'], self.job['code'], getattr(self.session, 'error_code', None))
                     return
                 async with self.session.lock:
                     def progress(stage, **fields):
@@ -219,6 +224,7 @@ class DealerSocketLeadReader:
                     self.latest = self.job.copy()
                     self.latest_by_scope[getattr(options, 'scope', 'cranbourne')] = self.latest
                     await self.schedule.save(self.latest)
+                    log.info('DealerSocket lead refresh completed job=%s duration=%.1fs', self.job['jobId'], result['totalDurationSeconds'])
         except asyncio.CancelledError:
             self.job = {**self.job, "state":"error", "code":"read_cancelled"}
             raise
@@ -226,6 +232,7 @@ class DealerSocketLeadReader:
             code = "login_required" if isinstance(error, PermissionError) else "read_timeout" if isinstance(error, TimeoutError) else "lead_read_failed"
             self.job = {**self.job, "state":"error", "code":code, "fetchedAt":now(),
                         "message":"Lead snapshot could not be verified. Check session and queue coverage; no CRM writes were performed."}
+            log.warning('DealerSocket lead refresh failed job=%s code=%s stage=%s duration=%.1fs error_type=%s', self.job.get('jobId'), code, self.job.get('progress', {}).get('stage'), monotonic()-job_clock, type(error).__name__)
         finally:
             self.session.reader_busy = False
 

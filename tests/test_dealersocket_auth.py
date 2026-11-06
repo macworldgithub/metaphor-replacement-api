@@ -74,13 +74,18 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
             await worker.task
             worker._run.assert_awaited_once_with('automatic_login')
 
-    async def test_visible_auto_action_requires_both_feature_flags(self):
+    async def test_auto_login_does_not_require_interactive_viewer(self):
         with tempfile.TemporaryDirectory() as folder:
-            for changes in [{'DEALERSOCKET_AUTO_LOGIN_ENABLED': False}, {'DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED': False}]:
-                worker = DealerSocketSession(config(folder, **changes))
-                with self.assertRaises(PermissionError):
-                    await worker.start('automatic_login')
-                self.assertIsNone(worker.task)
+            worker = DealerSocketSession(config(folder, DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED=False))
+            worker._run = AsyncMock()
+            await worker.start('automatic_login')
+            await worker.task
+            worker._run.assert_awaited_once_with('automatic_login')
+            with self.assertRaises(PermissionError):
+                await worker.start('login')
+            worker.config.DEALERSOCKET_AUTO_LOGIN_ENABLED = False
+            with self.assertRaises(PermissionError):
+                await worker.start('automatic_login')
 
     async def test_visible_automatic_action_does_not_misidentify_running_manual_login(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -96,6 +101,28 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
                     await worker.task
                 except asyncio.CancelledError:
                     pass
+    async def test_timeout_is_retryable_and_reports_stage(self):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = DealerSocketSession(config(folder))
+            clock = MagicMock()
+            clock.time.side_effect = [0, 91]
+            with patch('app.services.dealersocket_auth.asyncio.get_running_loop', return_value=clock):
+                with self.assertRaises(LoginRequired) as error:
+                    await DealerSocketLogin(worker.config).run(MagicMock(), AsyncMock())
+            self.assertEqual(error.exception.code, 'auto_login_timeout')
+            self.assertIn('waiting for a recognized login form', str(error.exception))
+
+    async def test_monitor_retries_timeout_without_viewer_or_browser(self):
+        with tempfile.TemporaryDirectory() as folder:
+            worker = DealerSocketSession(config(folder, DEALERSOCKET_INTERACTIVE_LOGIN_ENABLED=False))
+            worker.state = 'login_required'
+            worker.error_code = 'auto_login_timeout'
+            worker.start = AsyncMock()
+            with patch('app.services.dealersocket_session.asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
+                with self.assertRaises(asyncio.CancelledError):
+                    await worker._watch()
+            worker.start.assert_awaited_once_with('check')
+
     async def test_missing_password_does_not_consume_an_attempt(self):
         with tempfile.TemporaryDirectory() as folder:
             worker = DealerSocketSession(config(folder, DEALERSOCKET_PASSWORD=''))
