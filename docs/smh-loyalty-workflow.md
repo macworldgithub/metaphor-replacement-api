@@ -13,3 +13,5 @@ DealerSocket continues using Quoc Truong as Primary and Mark Robinson as Seconda
 Do not modify the original Cranbourne reader or use legacy SMS_KIA_NUMBER as the Hyundai sender. The campaign backend owns its explicit MOBILEMESSAGE_FROM setting. MONGODB_URI and provider credentials may be inherited privately from the root environment via SHARED_ENV_FILE. Do not copy passwords into source, browser scripts or logs.
 
 See ../sms-campaign-backend/PORTAL.md for the canonical workflow, local startup, test commands and production dependencies. Browser sign-in and MFA use the normal authenticated Chrome session; no bypass is used.
+
+The frontend is now a single app on port 3000: `/` is the staff workspace and `/loyalty` the customer form. The Python worker continues using the backend on port 4000; its key, scope and CRM write behavior are unchanged.
