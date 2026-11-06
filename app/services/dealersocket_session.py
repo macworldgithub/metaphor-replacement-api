@@ -19,7 +19,6 @@ ROOFTOPS = (
     ("geely_cranbourne", "Geely Cranbourne"),
 )
 BASE = "https://bb.dealersocket.com/#/homepage"
-MAX_AUTH_ATTEMPTS = 7
 
 
 def now():
@@ -87,43 +86,32 @@ class DealerSocketSession:
             try:
                 saved = json.loads(self.auth_state_path.read_text(encoding='utf-8'))
                 self.auth_attempts = max(0, int(saved['attempts']))
-                # Preserve an old terminal stop: earlier files did not distinguish
-                # explicit rejection from an exhausted three-attempt budget.
-                if 'maxAttempts' not in saved and self.auth_attempts >= 3:
-                    self.auth_attempts = MAX_AUTH_ATTEMPTS
                 self.auth_next_attempt = max(0, float(saved['nextAttemptAt']))
             except FileNotFoundError:
                 pass
             except (OSError, ValueError, TypeError, KeyError):
-                self.auth_attempts = MAX_AUTH_ATTEMPTS  # Corrupted recovery state must not reset lockout protection.
+                self.auth_attempts = 0
+                self.auth_next_attempt = time.time() + self.config.DEALERSOCKET_AUTH_COOLDOWN_SECONDS
 
     def _save_auth_recovery(self):
         if self.auth_state_path:
             self.auth_state_path.parent.mkdir(parents=True, exist_ok=True)
             temporary = self.auth_state_path.with_suffix('.tmp')
-            temporary.write_text(json.dumps({'attempts': self.auth_attempts, 'maxAttempts': MAX_AUTH_ATTEMPTS,
+            temporary.write_text(json.dumps({'attempts': self.auth_attempts,
                                              'nextAttemptAt': self.auth_next_attempt}), encoding='utf-8')
             os.replace(temporary, self.auth_state_path)
 
     async def _automatic_login(self):
         login = DealerSocketLogin(self.config)
         login.validate()
-        if self.auth_attempts >= MAX_AUTH_ATTEMPTS:
-            raise LoginRequired('auto_login_manual_required', 'Automatic login is stopped by its retry limit or a verification challenge. Complete login manually.')
         if time.time() < self.auth_next_attempt:
             raise LoginRequired('auto_login_cooldown', 'Automatic login is cooling down. Complete login manually or wait for the next retry.')
-        # Persist before touching credentials so a restart cannot bypass retry limits.
+        # Persist the cooldown before submitting credentials; attempt count is diagnostic only.
         self.auth_attempts += 1
         self.auth_next_attempt = time.time() + self.config.DEALERSOCKET_AUTH_COOLDOWN_SECONDS
         self._save_auth_recovery()
         self.message = 'Completing normal DealerSocket password and authenticator verification.'
-        try:
-            await login.run(self.page, self._probe)
-        except LoginRequired as error:
-            if error.code in ('auto_login_manual_required', 'auto_login_untrusted_origin'):
-                self.auth_attempts = MAX_AUTH_ATTEMPTS
-                self._save_auth_recovery()
-            raise
+        await login.run(self.page, self._probe)
 
     def status(self):
         # Reads own the browser, intentionally suspending the homepage checks.
@@ -284,7 +272,6 @@ class DealerSocketSession:
             await asyncio.sleep(max(10, self.config.DEALERSOCKET_CHECK_INTERVAL_SECONDS))
             if self.state == 'login_required' and (
                 self.error_code == 'auto_login_manual_required'
-                or self.auth_attempts >= MAX_AUTH_ATTEMPTS
                 or time.time() < self.auth_next_attempt
             ):
                 # Keep the failure visible until recovery is allowed or explicitly requested.

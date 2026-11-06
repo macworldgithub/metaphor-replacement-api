@@ -118,7 +118,7 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(run.await_count, 1)
                 self.assertEqual(restarted.auth_attempts, 1)
 
-    async def test_seven_attempts_stop_until_a_manual_login(self):
+    async def test_saved_seven_attempts_do_not_block_updated_credentials(self):
         with tempfile.TemporaryDirectory() as folder:
             worker = DealerSocketSession(config(folder))
             with patch.object(DealerSocketLogin, 'run', new_callable=AsyncMock,
@@ -128,19 +128,20 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
                     with self.assertRaises(LoginRequired):
                         await worker._automatic_login()
                 restarted = DealerSocketSession(config(folder))
+                restarted.auth_next_attempt = 0
                 with self.assertRaises(LoginRequired) as error:
                     await restarted._automatic_login()
-                self.assertEqual(error.exception.code, 'auto_login_manual_required')
-                self.assertEqual(run.await_count, 7)
+                self.assertEqual(error.exception.code, 'auto_login_timeout')
+                self.assertEqual(run.await_count, 8)
 
-    async def test_rejected_credentials_stop_repeated_automatic_attempts(self):
+    async def test_verification_failure_does_not_create_permanent_attempt_lockout(self):
         with tempfile.TemporaryDirectory() as folder:
             worker = DealerSocketSession(config(folder))
             with patch.object(DealerSocketLogin, 'run', new_callable=AsyncMock,
                               side_effect=LoginRequired('auto_login_manual_required', 'Manual login needed')):
                 with self.assertRaises(LoginRequired):
                     await worker._automatic_login()
-            self.assertEqual(DealerSocketSession(config(folder)).auth_attempts, 7)
+            self.assertEqual(DealerSocketSession(config(folder)).auth_attempts, 1)
 
     async def test_valid_saved_session_never_submits_credentials(self):
         with tempfile.TemporaryDirectory() as folder:
