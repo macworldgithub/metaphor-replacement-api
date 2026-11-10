@@ -72,6 +72,27 @@ class DealerSocketLogin:
                 return
         await field.press('Enter', timeout=5000)
 
+    async def diagnostic_summary(self, page):
+        """Only allowlisted hosts and counts; never return URLs, text or input values."""
+        try:
+            host = urlparse(page.url).hostname
+            location = host if host in self.hosts else 'unrecognized host'
+            inputs = await page.locator('input:visible').count()
+            passwords = await page.locator('input[type="password"]:visible').count()
+            frames = list(page.frames)
+            embedded_passwords = 0
+            trusted_frames = 0
+            for frame in frames[:12]:
+                if frame == page.main_frame or not self.trusted(frame.url):
+                    continue
+                trusted_frames += 1
+                embedded_passwords += await frame.locator('input[type="password"]:visible').count()
+            return (f'Page: {location}; visible inputs: {inputs}; password fields: {passwords}; '
+                    f'child frames: {max(0, len(frames)-1)}; inspected trusted frames: {trusted_frames}; '
+                    f'embedded password fields: {embedded_passwords}.')
+        except Exception:
+            return 'Page diagnostics unavailable.'
+
     async def run(self, page, probe):
         username = self.config.DEALERSOCKET_USERNAME
         password = self.config.DEALERSOCKET_PASSWORD
@@ -113,4 +134,5 @@ class DealerSocketLogin:
                 await self.submit(page, user)
             await asyncio.sleep(1)
         stage = 'authenticator submitted' if 'otp' in submitted else 'password submitted' if 'password' in submitted else 'username submitted' if 'username' in submitted else 'waiting for a recognized login form'
-        raise LoginRequired('auto_login_timeout', f'Automatic login timed out ({stage}). Background recovery will retry.')
+        diagnostic = await self.diagnostic_summary(page)
+        raise LoginRequired('auto_login_timeout', f'Automatic login timed out ({stage}). {diagnostic} Background recovery will retry.')

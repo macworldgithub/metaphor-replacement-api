@@ -123,6 +123,21 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
                     await worker._watch()
             worker.start.assert_awaited_once_with('check')
 
+    async def test_diagnostics_report_embedded_form_without_exposing_secrets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            login = DealerSocketLogin(config(folder))
+            page = MagicMock(url='https://bb.dealersocket.com/?token=private-token')
+            page.locator.return_value.count = AsyncMock(return_value=0)
+            child = MagicMock(url='https://na.login.solera.com/?code=private-code')
+            child.locator.return_value.count = AsyncMock(return_value=1)
+            untrusted = MagicMock(url='https://private-host.example/')
+            page.frames = [page.main_frame, child, untrusted]
+            summary = await login.diagnostic_summary(page)
+            self.assertIn('embedded password fields: 1', summary)
+            self.assertIn('visible inputs: 0', summary)
+            self.assertNotIn('private', summary)
+            untrusted.locator.assert_not_called()
+
     async def test_missing_password_does_not_consume_an_attempt(self):
         with tempfile.TemporaryDirectory() as folder:
             worker = DealerSocketSession(config(folder, DEALERSOCKET_PASSWORD=''))
