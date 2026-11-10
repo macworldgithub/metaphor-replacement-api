@@ -11,7 +11,9 @@ env/
 
 # Environment variables
 .env
-.env.local
+.env.*
+.env*
+!.env.example
 .private/
 dealersocket_browser_profile/
 
