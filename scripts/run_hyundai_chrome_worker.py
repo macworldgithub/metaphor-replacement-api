@@ -36,7 +36,7 @@ def save_journal(path,value):
         json.dump(value,file);file.flush();os.fsync(file.fileno())
     os.replace(temporary,path)
 
-async def main(once):
+async def main(once, prospects=False):
     load_dotenv(ROOT.parent/'sms-campaign-backend/.env')
     load_dotenv(ROOT/'.env')
     key=os.getenv('PORTAL_API_KEY','')
@@ -69,6 +69,13 @@ async def main(once):
                 attached=await session.call_tool('browser_tabs',{'action':'new','url':'https://bb.dealersocket.com/#/crm/employee?todoType=opportunities&dealershipId=10876&filterId=36'})
                 if attached.isError:raise RuntimeError('Chrome tab sharing was not completed.')
                 print('DealerSocket tab attached.',flush=True)
+                if prospects:
+                    code = (ROOT / 'scripts/read_south_morang_prospects.js').read_text(encoding='utf-8-sig')
+                    snapshot = result_value(await session.call_tool(tool, {'code': code}))
+                    response = await api.post('/api/worker/chrome/south-morang-prospects', json=snapshot)
+                    response.raise_for_status()
+                    print(f"South Morang prospects saved: {response.json()['saved']}", flush=True)
+                    return
                 next_read=0
                 catalog_sent=False
                 while True:
@@ -146,8 +153,9 @@ async def main(once):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--once',action='store_true')
+    parser.add_argument('--prospects', action='store_true', help='Refresh the South Morang active prospect snapshot once')
     args=parser.parse_args()
-    try:asyncio.run(main(args.once))
+    try:asyncio.run(main(args.once, args.prospects))
     except KeyboardInterrupt:pass
     except Exception as error:
         def leaves(value):
