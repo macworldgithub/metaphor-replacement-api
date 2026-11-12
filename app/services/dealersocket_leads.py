@@ -13,6 +13,7 @@ from app.services.dealersocket_session import dealersocket_session, now
 from app.services.dealersocket_lead_schedule import LeadSchedule
 
 log = logging.getLogger(__name__)
+DETAIL_READ_BUDGET_SECONDS = 420
 
 # Reuse the existing scoped normalization/mapping rules, not its CLI/MCP runner.
 _path = Path(__file__).resolve().parents[2] / "outputs/dealersocket_csv_sync/download_dealersocket_chrome.py"
@@ -42,6 +43,8 @@ async def collect_snapshot(browser, options, progress=None):
 async def _collect_snapshot(browser, options, rules, progress=None):
     started = now()
     clock = monotonic()
+    # Reserve time to package and save list rows before the outer ten-minute timeout.
+    detail_deadline = clock + DETAIL_READ_BUDGET_SECONDS
     records, coverage, errors, review, listed, jobs = {}, [], [], [], {}, []
     if progress:
         progress("opening_opportunities")
@@ -113,18 +116,19 @@ async def _collect_snapshot(browser, options, rules, progress=None):
             raw = rules.fallback(todo)
             raw.update(assigned_salesperson=todo.get("assignedTo") or "", last_updated_timestamp=todo.get("lastUpdate") or "")
             detail_at = None
-            if details < options.detailLimit and consecutive < 3:
+            if details < options.detailLimit and consecutive < 3 and monotonic() < detail_deadline:
                 details += 1
                 if progress:
                     progress("reading_details", attempted=details, maximum=options.detailLimit)
                 try:
-                    queue_key = (str(site["id"]), str(item["id"]))
-                    if queue_key != detail_queue:
-                        result = await browser.read_filter(site, item)
-                        if result.get("keyword"):
-                            raise RuntimeError("keyword_filter_active")
-                        detail_queue = queue_key
-                    candidate = await browser.detail(site, item, todo)
+                    async with asyncio.timeout(max(0.01, detail_deadline - monotonic())):
+                        queue_key = (str(site["id"]), str(item["id"]))
+                        if queue_key != detail_queue:
+                            result = await browser.read_filter(site, item)
+                            if result.get("keyword"):
+                                raise RuntimeError("keyword_filter_active")
+                            detail_queue = queue_key
+                        candidate = await browser.detail(site, item, todo)
                     if candidate.get("restricted"):
                         review.append({"siteId":str(site["id"]), "opportunityId":str(todo["salesOpportunityId"]), "reason":"restricted_record"})
                         continue

@@ -49,6 +49,20 @@ class FakeBrowser:
 
 
 class SnapshotTests(unittest.IsolatedAsyncioTestCase):
+    async def test_detail_budget_saves_list_rows_when_a_detail_stalls(self):
+        browser = FakeBrowser()
+        async def stalled_detail(*args):
+            await asyncio.sleep(60)
+        browser.detail = AsyncMock(side_effect=stalled_detail)
+        with patch('app.services.dealersocket_leads.DETAIL_READ_BUDGET_SECONDS', 0.02):
+            result = await asyncio.wait_for(collect_snapshot(browser, LeadReadOptions()), 1)
+        self.assertEqual(len(result['records']), 3)
+        self.assertEqual(result['state'], 'partial')
+        self.assertTrue(browser.restored)
+        self.assertEqual(browser.detail.await_count, 1)
+        self.assertTrue(all('list_only_details_not_verified' in row['validation_warnings']
+                            for row in result['records']))
+
     async def test_scope_dedup_and_no_unrelated_detail_reads(self):
         browser = FakeBrowser()
         browser.rows += [dict(browser.rows[0]), {**browser.rows[0],"salesOpportunityId":"x","franchiseName":"Other Dealer"},
