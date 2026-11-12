@@ -60,7 +60,7 @@ async def main(once, prospects=False):
     print('Connecting to authenticated Chrome. Accept its share-tab prompt if shown.',flush=True)
     async with httpx.AsyncClient(base_url=os.getenv('CAMPAIGN_BACKEND_URL','http://127.0.0.1:4000'),headers={'X-Portal-Key':key},timeout=30,transport=httpx.AsyncHTTPTransport(retries=5)) as api:
         async with stdio_client(params) as(read,write):
-            async with ClientSession(read,write,read_timeout_seconds=timedelta(seconds=240)) as session:
+            async with ClientSession(read,write,read_timeout_seconds=timedelta(seconds=900 if prospects else 240)) as session:
                 await session.initialize()
                 print('Chrome automation client initialized.',flush=True)
                 names={tool.name for tool in (await session.list_tools()).tools}
