@@ -171,35 +171,37 @@ class DealerSocketLeadReader:
         self.session = session
         self.task = None
         self.job = None
+        self.jobs_by_scope = {}
         self.latest = None
         self.latest_by_scope = {}
         self.schedule = LeadSchedule(self)
 
     def status(self, scope=None):
-        if scope:
-            latest = self.latest_by_scope.get(scope) or (self.latest if self.latest and self.latest.get('scope', 'cranbourne') == scope else None)
-            job = self.job if self.job and self.job.get('scope', 'cranbourne') == scope else None
-            if latest:
-                return {**latest, **(job if job and job.get('state') in ('running', 'error') else {}), 'snapshotState': latest['state'], 'schedule': self.schedule.metadata()}
-            return {**(job or {'state': 'idle', 'records': [], 'readOnly': True}), 'scope': scope, 'snapshotState': None, 'schedule': self.schedule.metadata()}
-        job = self.job or {"state":"idle", "readOnly":True}
-        if self.latest and job['state'] in ('idle', 'running', 'error'):
-            # Old data keeps its original observation time, even when a refresh fails.
-            job = {**self.latest, **job, 'state': self.latest['state'] if job['state']=='idle' else job['state'],
-                   'fetchedAt': self.latest['fetchedAt'], 'completedAt': self.latest.get('completedAt')}
-        elif job['state'] in ('running', 'error'):
-            job = {**job, 'fetchedAt': None}
-        return {**job, 'snapshotState': self.latest['state'] if self.latest else None,
-                'schedule': self.schedule.metadata()}
+        # Unscoped callers are the existing Cranbourne portal, even while Hyundai reads.
+        scope = scope or 'cranbourne'
+        latest = self.latest_by_scope.get(scope) or (
+            self.latest if self.latest and self.latest.get('scope', 'cranbourne') == scope else None)
+        job = (self.job if self.job and self.job.get('scope', 'cranbourne') == scope
+               else self.jobs_by_scope.get(scope))
+        if latest:
+            # A failed refresh must retain the successful snapshot's observation time.
+            result = {**latest, **(job if job and job.get('state') in ('running', 'error') else {}),
+                      'fetchedAt': latest['fetchedAt'], 'completedAt': latest.get('completedAt')}
+        else:
+            result = {**(job or {'state': 'idle', 'records': [], 'readOnly': True}),
+                      'fetchedAt': None}
+        return {**result, 'scope': scope, 'snapshotState': latest['state'] if latest else None,
+                'schedule': self.schedule.metadata(scope)}
 
     def start(self, options):
         if self.task and not self.task.done() or self.session.reader_busy or self.session.lock.locked() or self.session.task and not self.session.task.done():
             raise RuntimeError("browser_busy")
         self.session.reader_busy = True
         self.job = {"state":"running", "jobId":str(uuid4()), "startedAt":now(), "readOnly":True, "scope":getattr(options, 'scope', 'cranbourne')}
-        log.info('DealerSocket lead refresh started job=%s', self.job['jobId'])
+        self.jobs_by_scope[self.job['scope']] = self.job
+        log.info('DealerSocket lead refresh started job=%s scope=%s', self.job['jobId'], self.job['scope'])
         self.task = asyncio.create_task(self._run(options))
-        return self.status()
+        return self.status(getattr(options, 'scope', 'cranbourne'))
 
     async def _run(self, options):
         job_clock = monotonic()
@@ -221,9 +223,12 @@ class DealerSocketLeadReader:
                         raise PermissionError("login_required")
                     result["totalDurationSeconds"] = round(monotonic()-job_clock,2)
                     self.job = {**self.job, **result}
-                    self.latest = self.job.copy()
-                    self.latest_by_scope[getattr(options, 'scope', 'cranbourne')] = self.latest
-                    await self.schedule.save(self.latest)
+                    scope = getattr(options, 'scope', 'cranbourne')
+                    latest = self.job.copy()
+                    self.latest_by_scope[scope] = latest
+                    if scope == 'cranbourne':
+                        self.latest = latest
+                    await self.schedule.save(latest)
                     log.info('DealerSocket lead refresh completed job=%s duration=%.1fs', self.job['jobId'], result['totalDurationSeconds'])
         except asyncio.CancelledError:
             self.job = {**self.job, "state":"error", "code":"read_cancelled"}
@@ -234,6 +239,7 @@ class DealerSocketLeadReader:
                         "message":"Lead snapshot could not be verified. Check session and queue coverage; no CRM writes were performed."}
             log.warning('DealerSocket lead refresh failed job=%s code=%s stage=%s duration=%.1fs error_type=%s', self.job.get('jobId'), code, self.job.get('progress', {}).get('stage'), monotonic()-job_clock, type(error).__name__)
         finally:
+            self.jobs_by_scope[getattr(options, 'scope', 'cranbourne')] = self.job
             self.session.reader_busy = False
 
     async def shutdown(self):
